@@ -21,7 +21,15 @@ const COUNTRIES_DB = [
   { id: "greece", name: "Yunanistan", flag: "🇬🇷", rank: 32, land: 32, air: 35, sea: 28, desc: "Ege ve Akdeniz'de yoğunlaşmış deniz ve jet filoları." },
   { id: "switzerland", name: "İsviçre", flag: "🇨🇭", rank: 44, land: 28, air: 25, sea: 0, desc: "Dağlık coğrafya tahkimatı. Denize kıyısı yoktur (Sea: 0)." },
   { id: "azerbaijan", name: "Azerbaycan", flag: "🇦🇿", rank: 59, land: 34, air: 28, sea: 10, desc: "Hazar'da sınırlı donanma, modern İHA ve kara gücü." },
-  { id: "mongolia", name: "Moğolistan", flag: "🇲🇳", rank: 101, land: 20, air: 12, sea: 0, desc: "Landlocked bozkır gücü. Denize kıyısı yoktur (Sea: 0)." }
+  { id: "mongolia", name: "Moğolistan", flag: "🇲🇳", rank: 101, land: 20, air: 12, sea: 0, desc: "Landlocked bozkır gücü. Denize kıyısı yoktur (Sea: 0)." },
+  { id: "france", name: "Fransa", flag: "🇫🇷", rank: 8, land: 36, air: 44, sea: 44, desc: "Nükleer denizaltılar ve uçak gemisi görev gücü." },
+  { id: "pakistan", name: "Pakistan", flag: "🇵🇰", rank: 11, land: 44, air: 36, sea: 24, desc: "Geniş kara ordusu ve bölgesel caydırıcılık." },
+  { id: "indonesia", name: "Endonezya", flag: "🇮🇩", rank: 13, land: 36, air: 30, sea: 36, desc: "Takımadalar donanması ve büyüyen savunma bütçesi." },
+  { id: "iran", name: "İran", flag: "🇮🇷", rank: 14, land: 42, air: 30, sea: 26, desc: "Balistik füze programı ve asimetrik deniz taktikleri." },
+  { id: "spain", name: "İspanya", flag: "🇪🇸", rank: 19, land: 28, air: 34, sea: 36, desc: "Amfibi hücum gemileri ve Akdeniz filosu." },
+  { id: "vietnam", name: "Vietnam", flag: "🇻🇳", rank: 20, land: 40, air: 26, sea: 22, desc: "Çetin savunma doktrini ve tecrübeli kara kuvvetleri." },
+  { id: "sweden", name: "İsveç", flag: "🇸🇪", rank: 29, land: 26, air: 36, sea: 24, desc: "Gripen filosu ve Baltık'ta sessiz denizaltılar." },
+  { id: "netherlands", name: "Hollanda", flag: "🇳🇱", rank: 35, land: 24, air: 32, sea: 34, desc: "Fırkateyn filosu ve NATO lojistik üssü." }
 ];
 
 // Tarayıcı ve Node.js için dışa aktarma uyumluluğu

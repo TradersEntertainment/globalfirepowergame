@@ -1301,3 +1301,500 @@ body {
   40%, 60% { transform: translate3d(7px, 5px, 0); }
 }
 
+/* ==========================================================================
+   GFP V2.0 - Main Menu, Modes, Tactics, Achievements, Perks, Toasts
+   ========================================================================== */
+
+.text-premium { color: var(--color-premium); }
+.text-success { color: var(--color-success); }
+
+/* Sidebar medal counter */
+.sidebar-medals {
+  margin-top: 10px;
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  color: var(--color-premium);
+  background: hsla(45, 100%, 50%, 0.08);
+  border: 1px solid hsla(45, 100%, 50%, 0.25);
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+
+.sidebar-footer {
+  display: flex;
+  gap: 8px;
+}
+.sidebar-footer .btn { flex: 1; justify-content: center; padding: 10px 8px; font-size: 0.75rem; }
+.btn-icon-only { flex: 0 0 42px !important; }
+
+/* ============ Main Menu ============ */
+.menu-modal {
+  width: 92%;
+  max-width: 900px;
+  max-height: 94vh;
+  overflow-y: auto;
+  text-align: center;
+  padding: 40px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-light);
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 40px rgba(0, 229, 255, 0.1);
+  animation: modalScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.menu-brand .logo-icon {
+  font-size: 3.5rem;
+  animation: pulseGold 3s infinite alternate;
+}
+
+.menu-title {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: 6px;
+  background: linear-gradient(90deg, var(--color-accent), hsl(210, 100%, 75%), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-top: 8px;
+}
+
+.menu-subtitle {
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  letter-spacing: 4px;
+  color: var(--text-muted);
+  margin: 6px 0 22px;
+}
+
+.menu-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.menu-stat {
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-light);
+  padding: 8px 18px;
+  border-radius: 20px;
+  color: var(--text-secondary);
+}
+
+.menu-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 760px) {
+  .menu-modes { grid-template-columns: 1fr; }
+}
+
+.mode-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 26px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: var(--transition-smooth);
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-accent);
+  box-shadow: var(--glow-shadow);
+}
+
+.mode-card.mode-campaign:hover {
+  border-color: var(--color-premium);
+  box-shadow: var(--premium-glow);
+}
+
+.mode-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsla(195, 100%, 50%, 0.18) 0%, transparent 70%);
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.mode-campaign .mode-icon {
+  border-color: var(--color-premium);
+  color: var(--color-premium);
+  background: radial-gradient(circle, hsla(45, 100%, 50%, 0.15) 0%, transparent 70%);
+}
+
+.mode-card h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.mode-card p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+.diff-selector {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.diff-btn {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+.diff-btn .diff-reward {
+  font-size: 0.62rem;
+  color: var(--color-premium);
+  opacity: 0.7;
+}
+
+.diff-btn:hover { border-color: var(--color-accent); color: var(--text-primary); }
+
+.diff-btn.active {
+  border-color: var(--color-accent);
+  background: hsla(195, 100%, 50%, 0.12);
+  color: var(--color-accent);
+  box-shadow: 0 0 10px hsla(195, 100%, 50%, 0.2);
+}
+
+.mode-start-btn { width: 100%; justify-content: center; margin-top: 4px; }
+
+.campaign-track {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+
+.track-node {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border-light);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  position: relative;
+}
+
+.track-node:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  width: 8px;
+  height: 2px;
+  background: var(--border-light);
+}
+
+.track-node.cleared {
+  border-color: var(--color-premium);
+  color: var(--color-premium);
+  background: hsla(45, 100%, 50%, 0.1);
+  box-shadow: 0 0 8px hsla(45, 100%, 50%, 0.3);
+}
+
+.menu-footer {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* ============ Campaign Indicator (Action Zone) ============ */
+.campaign-indicator {
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-premium);
+  letter-spacing: 1px;
+  background: hsla(45, 100%, 50%, 0.08);
+  padding: 6px 15px;
+  border-radius: 20px;
+  border: 1px solid hsla(45, 100%, 50%, 0.3);
+}
+
+.campaign-indicator.hidden { display: none; }
+
+/* ============ Tactics Bar ============ */
+.tactics-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+  min-width: 0;
+}
+
+.tactics-bar {
+  display: flex;
+  gap: 8px;
+  min-height: 52px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tactic-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, hsla(280, 40%, 22%, 0.7) 0%, hsla(222, 25%, 12%, 0.8) 100%);
+  border: 1px solid hsla(280, 70%, 60%, 0.35);
+  border-radius: 10px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: hsl(280, 60%, 80%);
+  position: relative;
+}
+
+.tactic-card i { font-size: 0.9rem; }
+
+.tactic-card:hover {
+  transform: translateY(-3px);
+  border-color: hsl(280, 80%, 65%);
+  box-shadow: 0 0 12px hsla(280, 80%, 60%, 0.35);
+}
+
+.tactic-card.armed {
+  border-color: hsl(280, 90%, 70%);
+  box-shadow: 0 0 18px hsla(280, 90%, 65%, 0.6);
+  animation: pulseCard 1s infinite alternate;
+}
+
+.tactic-card.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tactics-empty {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-family-mono);
+}
+
+/* tactic targeting highlight */
+.front-slot.tactic-target {
+  border-style: solid;
+  border-color: hsl(280, 90%, 70%) !important;
+  box-shadow: 0 0 18px hsla(280, 90%, 65%, 0.45) !important;
+  animation: pulseSlot 1s infinite alternate;
+  cursor: crosshair;
+}
+
+/* ============ Achievements ============ */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.achievement-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: left;
+  transition: var(--transition-smooth);
+}
+
+.achievement-card .ach-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--text-muted);
+  color: var(--text-muted);
+}
+
+.achievement-card.unlocked .ach-icon {
+  border-color: var(--color-premium);
+  color: var(--color-premium);
+  box-shadow: 0 0 12px hsla(45, 100%, 50%, 0.35);
+}
+
+.achievement-card.unlocked {
+  border-color: hsla(45, 100%, 50%, 0.3);
+}
+
+.achievement-card .ach-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.achievement-card.locked .ach-name { color: var(--text-muted); }
+
+.achievement-card .ach-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* ============ Perk Selection (Campaign) ============ */
+.perk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 18px;
+}
+
+.perk-card {
+  background: var(--bg-card);
+  border: 1px solid hsla(45, 100%, 50%, 0.25);
+  border-radius: 16px;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  text-align: center;
+}
+
+.perk-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  border-color: var(--color-premium);
+  box-shadow: var(--premium-glow);
+}
+
+.perk-card .perk-icon {
+  font-size: 2rem;
+  color: var(--color-premium);
+  filter: drop-shadow(0 0 8px hsla(45, 100%, 50%, 0.4));
+}
+
+.perk-card .perk-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+}
+
+.perk-card .perk-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ============ Purchase modal extras ============ */
+.purchase-balance {
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.btn-primary.insufficient {
+  background: var(--text-muted);
+  color: var(--bg-sidebar);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.medal-earned { color: var(--color-premium); }
+
+/* ============ Achievement Toasts ============ */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, hsl(222, 28%, 12%) 0%, hsl(222, 25%, 8%) 100%);
+  border: 1px solid var(--color-premium);
+  border-radius: 14px;
+  padding: 14px 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 20px hsla(45, 100%, 50%, 0.25);
+  animation: toastIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), toastOut 0.4s ease-in 4s forwards;
+  min-width: 280px;
+}
+
+.toast .toast-icon {
+  font-size: 1.6rem;
+  color: var(--color-premium);
+  filter: drop-shadow(0 0 8px hsla(45, 100%, 50%, 0.5));
+}
+
+.toast .toast-label {
+  font-family: var(--font-family-mono);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  color: var(--color-premium);
+  text-transform: uppercase;
+}
+
+.toast .toast-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.toast .toast-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+@keyframes toastIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toastOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(120%); opacity: 0; }
+}
+

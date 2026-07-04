@@ -1,4 +1,5 @@
-// Global Firepower: Tactical Fronts - Lider Veri Tabanı
+// Global Firepower: Tactical Fronts - Lider Veri Tabanı (V2.0)
+// Kilitli liderler artık savaşlarda kazanılan Şeref Madalyası ile açılır (cost alanı).
 const LEADERS_DB = [
   {
     id: "trump",
@@ -9,7 +10,7 @@ const LEADERS_DB = [
     abilityType: "land_buff",
     abilityVal: 6,
     isLocked: false,
-    price: "0.00"
+    cost: 0
   },
   {
     id: "putin",
@@ -20,7 +21,7 @@ const LEADERS_DB = [
     abilityType: "land_debuff",
     abilityVal: 8,
     isLocked: false,
-    price: "0.00"
+    cost: 0
   },
   {
     id: "erdogan",
@@ -31,7 +32,7 @@ const LEADERS_DB = [
     abilityType: "air_buff",
     abilityVal: 7,
     isLocked: false,
-    price: "0.00"
+    cost: 0
   },
   {
     id: "jinping",
@@ -42,7 +43,7 @@ const LEADERS_DB = [
     abilityType: "heal_round_end",
     abilityVal: 5,
     isLocked: false,
-    price: "0.00"
+    cost: 0
   },
   {
     id: "kim",
@@ -53,7 +54,7 @@ const LEADERS_DB = [
     abilityType: "nuke_debuff",
     abilityVal: 0.5,
     isLocked: true,
-    price: "$0.99"
+    cost: 150
   },
   {
     id: "macron",
@@ -64,7 +65,29 @@ const LEADERS_DB = [
     abilityType: "direct_damage_reduction",
     abilityVal: 0.3,
     isLocked: true,
-    price: "$0.99"
+    cost: 150
+  },
+  {
+    id: "zelensky",
+    name: "V. Zelenskiy",
+    flag: "🇺🇦",
+    title: "Direniş Ruhu",
+    desc: "Sahadaki bir birimin yok edildiğinde +6 HP kazanırsın. Millet asla pes etmez.",
+    abilityType: "hp_on_unit_lost",
+    abilityVal: 6,
+    isLocked: true,
+    cost: 250
+  },
+  {
+    id: "modi",
+    name: "Narendra Modi",
+    flag: "🇮🇳",
+    title: "İnsan Gücü Seferberliği",
+    desc: "El limitin 5 yerine 6 karttır. Her tur daha fazla seçenekle savaşırsın.",
+    abilityType: "hand_size",
+    abilityVal: 6,
+    isLocked: true,
+    cost: 250
   }
 ];
 
