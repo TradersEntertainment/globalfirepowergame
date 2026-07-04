@@ -154,8 +154,16 @@
         <!-- Player Hand -->
         <div class="hand-container-wrapper">
           <div class="hand-label">Elindeki Ülke Kartları (Bir kart seçip yerleştirmek istediğin cepheye tıkla)</div>
-          <div id="player-hand" class="hand-container">
-            <!-- Cards will be dynamically rendered here -->
+          <div class="hand-and-deck-wrapper" style="display: flex; gap: 20px; align-items: flex-end;">
+            <div id="player-hand" class="hand-container" style="flex-grow: 1;">
+              <!-- Cards will be dynamically rendered here -->
+            </div>
+            <div id="deck-pile" class="deck-pile" title="Deste Yığını">
+              <div class="deck-card-visual card-back">
+                <i class="fa-solid fa-layer-group" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                <span style="font-size: 0.65rem; text-transform: uppercase; font-weight: bold; font-family: var(--font-family-mono);">DESTE</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

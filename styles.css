@@ -1106,3 +1106,198 @@ body {
   50% { border-color: var(--color-danger); box-shadow: var(--danger-glow); transform: scale(0.95); }
   100% { border-color: var(--border-light); }
 }
+
+/* ==========================================================================
+   GFP V1.3 - Dynamic Game Animations & Steam Aesthetics
+   ========================================================================== */
+
+/* Deck Pile visual */
+.deck-pile {
+  width: 170px;
+  height: 155px;
+  position: relative;
+  cursor: pointer;
+  z-index: 5;
+  perspective: 800px;
+}
+
+.deck-card-visual {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+  transform: rotate(-1.5deg);
+  transition: var(--transition-smooth);
+}
+
+.deck-pile:hover .deck-card-visual {
+  transform: translateY(-5px) rotate(-3deg) scale(1.02);
+  border-color: var(--color-accent);
+  box-shadow: var(--glow-shadow);
+}
+
+.deck-pile::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, hsl(222, 28%, 10%) 0%, hsl(222, 25%, 5%) 100%);
+  border: 2px solid var(--color-warning);
+  border-radius: 12px;
+  transform: rotate(2deg);
+  z-index: -1;
+  opacity: 0.8;
+}
+
+.deck-pile::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, hsl(222, 28%, 8%) 0%, hsl(222, 25%, 4%) 100%);
+  border: 2px solid var(--color-warning);
+  border-radius: 12px;
+  transform: rotate(-3deg);
+  z-index: -2;
+  opacity: 0.6;
+}
+
+/* Flying Card (Draw Animation) */
+.flying-card {
+  position: absolute;
+  width: 170px;
+  height: 155px;
+  background: var(--bg-card);
+  border: 2px solid var(--color-warning);
+  border-radius: 12px;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-warning);
+  font-size: 2.5rem;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), var(--glow-shadow);
+  transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform-style: preserve-3d;
+}
+
+/* Slide and Collision Animations for Card Clash */
+.clash-slide-up {
+  animation: slideUpClash 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.clash-slide-down {
+  animation: slideDownClash 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes slideUpClash {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-40px) scale(1.08) rotate(1deg); }
+  60% { transform: translateY(-40px) scale(1.08) rotate(-1deg); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes slideDownClash {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(40px) scale(1.08) rotate(-1deg); }
+  60% { transform: translateY(40px) scale(1.08) rotate(1deg); }
+  100% { transform: translateY(0); }
+}
+
+/* Shockwave expansion ring */
+.clash-ring {
+  position: absolute;
+  border: 3px solid var(--color-warning);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999;
+  transform: translate(-50%, -50%);
+  animation: ringPulse 0.5s ease-out forwards;
+}
+
+@keyframes ringPulse {
+  0% { width: 10px; height: 10px; opacity: 1; border-color: var(--color-accent); }
+  50% { opacity: 0.8; }
+  100% { width: 220px; height: 220px; opacity: 0; border-color: var(--color-danger); }
+}
+
+/* Spark particles */
+.clash-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 0 8px var(--color-accent);
+  animation: particleMove 0.7s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.clash-particle.gold {
+  background: var(--color-premium);
+  box-shadow: 0 0 8px var(--color-premium);
+}
+
+.clash-particle.red {
+  background: var(--color-danger);
+  box-shadow: 0 0 8px var(--color-danger);
+}
+
+@keyframes particleMove {
+  0% { transform: translate(0, 0) scale(1.2); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+/* Floating damage/healing numbers */
+.floating-dmg {
+  position: absolute;
+  font-family: var(--font-family-mono);
+  font-weight: 800;
+  font-size: 1.8rem;
+  color: var(--color-danger);
+  text-shadow: 0 0 10px rgba(255, 23, 68, 0.8), 0 0 2px rgba(0,0,0,0.9);
+  pointer-events: none;
+  z-index: 1001;
+  animation: floatDmg 0.9s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+.floating-dmg.heal {
+  color: var(--color-success);
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 2px rgba(0,0,0,0.9);
+}
+
+.floating-dmg.text {
+  font-size: 1.3rem;
+  color: var(--color-warning);
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.8), 0 0 2px rgba(0,0,0,0.9);
+}
+
+@keyframes floatDmg {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -30px) scale(1.3); opacity: 1; }
+  75% { opacity: 1; }
+  100% { transform: translate(-50%, -90px) scale(0.8); opacity: 0; }
+}
+
+/* Screen Shake trigger */
+.screen-shake {
+  animation: screenShakeAnim 0.35s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes screenShakeAnim {
+  10%, 90% { transform: translate3d(-3px, -2px, 0); }
+  20%, 80% { transform: translate3d(5px, 4px, 0); }
+  30%, 50%, 70% { transform: translate3d(-7px, -4px, 0); }
+  40%, 60% { transform: translate3d(7px, 5px, 0); }
+}
+
