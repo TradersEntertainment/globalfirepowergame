@@ -206,8 +206,12 @@ function isCardDamaged(card) {
 }
 
 function flagHTML(entry, cls = 'card-flag-img') {
-  if (entry.iso) return `<img class="${cls}" src="flags/${entry.iso}.svg" alt="">`;
+  if (entry.iso) return `<img class="${cls}" src="flags/${entry.iso}.svg" alt="" draggable="false">`;
   return `<span class="card-flag">${entry.flag}</span>`;
+}
+
+function isLegendary(card) {
+  return card.rank <= 10;
 }
 
 function isLeaderActive(owner) {
@@ -369,6 +373,13 @@ async function animateCardDraw(isPlayer, card) {
       await delay(520);
       flyer.remove();
       targetCardEl.style.opacity = '1';
+
+      // Top 10 ülke ele geldi: altın patlama + efsanevi çınlama
+      if (isLegendary(card)) {
+        const r = targetCardEl.getBoundingClientRect();
+        spawnClashParticles(r.left + r.width / 2, r.top + r.height / 2, 'gold');
+        sfx('legendary');
+      }
     } else {
       flyer.remove();
     }
@@ -1037,7 +1048,7 @@ function getCardHTML(card) {
         ${flagHTML(card)}
         <span class="card-name" title="${card.name}">${card.name}</span>
       </div>
-      <span class="card-rank">#${card.rank}</span>
+      <span class="card-rank">${isLegendary(card) ? '★' : ''}#${card.rank}</span>
     </div>
     <div class="card-stats">
       ${row('land', 'fa-trowel-bricks', 'Kara')}
@@ -1058,13 +1069,19 @@ function renderHand() {
   hand.forEach((card, idx) => {
     const cardEl = document.createElement('div');
     cardEl.className = 'card';
+    if (isLegendary(card)) cardEl.classList.add('legendary');
     if (isCardDamaged(card)) cardEl.classList.add('damaged');
     if (selectedHandCardIdx === idx) {
       cardEl.classList.add('selected');
     }
     cardEl.innerHTML = getCardHTML(card);
 
+    // Sürükle-bırak ile konuşlandırma
+    cardEl.addEventListener('pointerdown', (e) => startCardDrag(e, idx, cardEl));
+
+    // Tıklama: seçim modu (sürükleme olduysa bastırılır)
     cardEl.addEventListener('click', () => {
+      if (dragJustHappened) { dragJustHappened = false; return; }
       if (gameState !== 'planning') return;
       sfx('click');
       hideCardActionPopup();
@@ -1080,6 +1097,128 @@ function renderHand() {
 
     playerHandEl.appendChild(cardEl);
   });
+}
+
+// ==========================================================================
+// Sürükle-Bırak Konuşlandırma (Hearthstone hissi)
+// ==========================================================================
+let dragJustHappened = false;
+
+function createDragGhost(cardEl) {
+  const ghost = cardEl.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.classList.remove('selected');
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+function startCardDrag(e, idx, cardEl) {
+  if (gameState !== 'planning') return;
+  if (e.button !== undefined && e.button !== 0) return;
+
+  const startX = e.clientX, startY = e.clientY;
+  const side = getPlannerSide();
+  let dragging = false;
+  let ghost = null;
+  let lastX = startX;
+
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+
+    if (!dragging && Math.hypot(dx, dy) > 10) {
+      dragging = true;
+      hideCardActionPopup();
+      selectedTacticIdx = null;
+      Scene3D.setTacticTargets(null);
+      selectedHandCardIdx = null;
+
+      ghost = createDragGhost(cardEl);
+      cardEl.classList.add('drag-src');
+      Scene3D.setDeployMode(side);
+      sfx('pickup');
+    }
+
+    if (dragging && ghost) {
+      // Yukarı sürüklendikçe kart büyür; yatay hıza göre hafif yatar
+      const lift = Math.max(0, startY - ev.clientY);
+      const scale = 1.12 + Math.min(0.55, lift / 320);
+      const tilt = Math.max(-10, Math.min(10, (ev.clientX - lastX) * 1.4));
+      lastX = ev.clientX;
+
+      ghost.style.left = `${ev.clientX}px`;
+      ghost.style.top = `${ev.clientY}px`;
+      ghost.style.transform = `translate(-50%, -58%) scale(${scale}) rotate(${tilt}deg)`;
+
+      // Altındaki cepheyi parlat
+      const slot = Scene3D.pickSlotAt(ev.clientX, ev.clientY);
+      const valid = slot && slot.owner === side;
+      Scene3D.setExternalHover(valid ? slot : null);
+      ghost.classList.toggle('over-slot', !!valid);
+    }
+  };
+
+  const onUp = (ev) => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    Scene3D.setExternalHover(null);
+
+    if (!dragging) return; // sadece tıklama → click handler devralır
+
+    // Sürükleme sonrası tetiklenen sahte click'i bastır, sonra bayrağı temizle
+    dragJustHappened = true;
+    setTimeout(() => { dragJustHappened = false; }, 60);
+    Scene3D.setDeployMode(null);
+
+    const slot = Scene3D.pickSlotAt(ev.clientX, ev.clientY);
+    if (slot && slot.owner === side && gameState === 'planning') {
+      ghost.remove();
+      cardEl.classList.remove('drag-src');
+      deployCardFromHand(idx, slot.front);
+    } else {
+      // Geçersiz bırakış: kart ele geri süzülür
+      const rect = cardEl.getBoundingClientRect();
+      ghost.style.transition = 'all 0.28s cubic-bezier(0.25, 0.8, 0.25, 1)';
+      ghost.style.left = `${rect.left + rect.width / 2}px`;
+      ghost.style.top = `${rect.top + rect.height / 2}px`;
+      ghost.style.transform = 'translate(-50%, -50%) scale(1) rotate(0deg)';
+      ghost.style.opacity = '0.4';
+      setTimeout(() => {
+        ghost.remove();
+        cardEl.classList.remove('drag-src');
+      }, 290);
+    }
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+}
+
+function deployCardFromHand(idx, front) {
+  const side = getPlannerSide();
+  const hand = getPlannerHand();
+  const card = hand[idx];
+  if (!card) return;
+
+  const existing = board[side][front];
+  if (existing) {
+    removeDeployModifiers(existing, front, side);
+    hand.push(existing);
+  }
+
+  sfx('deploy');
+  anthem(card.id); // Ulusal marş: ülke cepheye sürülüyor!
+  board[side][front] = card;
+  applyDeployModifiers(card, front, side);
+
+  hand.splice(idx, 1);
+  selectedHandCardIdx = null;
+
+  renderHand();
+  Scene3D.setDeployMode(null);
+  refreshBoard();
 }
 
 // ==========================================================================
@@ -1156,25 +1295,7 @@ function handleSceneSlotClick(owner, front) {
 
   // Elde seçili kart varsa → konuşlandır
   if (selectedHandCardIdx !== null) {
-    const selectedCard = hand[selectedHandCardIdx];
-
-    const existing = board[side][front];
-    if (existing) {
-      removeDeployModifiers(existing, front, side);
-      hand.push(existing);
-    }
-
-    sfx('deploy');
-    anthem(selectedCard.id); // Ulusal marş: ülke cepheye sürülüyor!
-    board[side][front] = selectedCard;
-    applyDeployModifiers(selectedCard, front, side);
-
-    hand.splice(selectedHandCardIdx, 1);
-    selectedHandCardIdx = null;
-
-    renderHand();
-    Scene3D.setDeployMode(null);
-    refreshBoard();
+    deployCardFromHand(selectedHandCardIdx, front);
     return;
   }
 

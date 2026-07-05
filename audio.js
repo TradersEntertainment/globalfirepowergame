@@ -283,6 +283,7 @@ const AudioEngine = (() => {
     medal()     { tone(880, 0.18, { type: "sine", vol: 0.15 }); tone(1174, 0.22, { type: "sine", vol: 0.13, delay: 0.1 }); tone(1760, 0.3, { type: "sine", vol: 0.1, delay: 0.2 }); },
     achievement(){ tone(659, 0.14, { type: "triangle", vol: 0.14 }); tone(880, 0.14, { type: "triangle", vol: 0.14, delay: 0.11 }); tone(1318, 0.28, { type: "triangle", vol: 0.13, delay: 0.22 }); },
     victory()   { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.28, { type: "triangle", vol: 0.14, delay: i * 0.14 })); },
+    legendary() { tone(1568, 0.22, { type: "sine", vol: 0.12 }); tone(1975, 0.28, { type: "sine", vol: 0.1, delay: 0.12 }); tone(2637, 0.35, { type: "sine", vol: 0.08, delay: 0.24 }); noise(0.4, { vol: 0.04, freq: 7500, type: "highpass", delay: 0.1 }); },
     defeat()    { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.32, { type: "sawtooth", vol: 0.1, delay: i * 0.17 })); },
     // Düşman konuşlanması: karanlık savaş borusu
     enemyHorn() { brassNote(noteFreq("A3"), 0.4, 0, 0.07); brassNote(noteFreq("Ab3"), 0.55, 0.42, 0.08); noise(0.3, { vol: 0.06, freq: 500, slideTo: 120 }); }

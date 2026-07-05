@@ -180,21 +180,52 @@ const Scene3D = (() => {
     ctx.fillStyle = bg;
     ctx.fill();
 
-    // Hasar durumu (temel güçten düşükse)
+    // Hasar durumu (temel güçten düşükse) + efsanevi (Top 10) durumu
     const anyDamaged = ['land', 'air', 'sea'].some(k =>
       typeof card[k] === 'number' && card.currentPower[k] < card[k]
     );
+    const legendary = card.rank <= 10;
 
-    // Kenarlık (hasarlıysa kızıl)
+    // Efsanevi kartlarda altın ışıma zemini
+    if (legendary) {
+      const sheen = ctx.createLinearGradient(0, 0, W, H * 0.6);
+      sheen.addColorStop(0, 'rgba(255, 208, 92, 0.10)');
+      sheen.addColorStop(0.5, 'rgba(255, 232, 160, 0.05)');
+      sheen.addColorStop(1, 'rgba(255, 208, 92, 0)');
+      roundRectPath(ctx, 6, 6, W - 12, H - 12, 34);
+      ctx.fillStyle = sheen;
+      ctx.fill();
+    }
+
+    // Kenarlık (öncelik: hasar kızılı > efsanevi altını > cephe camgöbeği)
+    roundRectPath(ctx, 6, 6, W - 12, H - 12, 34);
     ctx.lineWidth = 8;
-    ctx.strokeStyle = anyDamaged ? 'rgba(255, 96, 80, 0.9)' : (highlightFront ? '#39d5ff' : 'rgba(120, 160, 210, 0.55)');
+    ctx.strokeStyle = anyDamaged
+      ? 'rgba(255, 96, 80, 0.9)'
+      : (legendary ? '#f7c948' : (highlightFront ? '#39d5ff' : 'rgba(120, 160, 210, 0.55)'));
+    if (legendary && !anyDamaged) {
+      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
+      ctx.shadowBlur = 14;
+    }
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
     // İç ışıltı çizgisi
     roundRectPath(ctx, 18, 18, W - 36, H - 36, 26);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
+    ctx.strokeStyle = legendary ? 'rgba(255, 210, 110, 0.35)' : 'rgba(0, 229, 255, 0.18)';
     ctx.stroke();
+
+    // Efsanevi köşe süsleri
+    if (legendary) {
+      ctx.strokeStyle = 'rgba(247, 201, 72, 0.85)';
+      ctx.lineWidth = 5;
+      const c = 46, o = 20;
+      [[o, o + c, o, o, o + c, o], [W - o, o + c, W - o, o, W - o - c, o],
+       [o, H - o - c, o, H - o, o + c, H - o], [W - o, H - o - c, W - o, H - o, W - o - c, H - o]].forEach(([x1, y1, x2, y2, x3, y3]) => {
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.stroke();
+      });
+    }
 
     // Bayrak (SVG yüklüyse gerçek bayrak, değilse emoji)
     ctx.textBaseline = 'middle';
@@ -221,10 +252,10 @@ const Scene3D = (() => {
     if (name !== card.name) name += '…';
     ctx.fillText(name, 148, 76);
 
-    // Rank rozeti + hasar uyarısı
+    // Rank rozeti + hasar uyarısı (Top 10 → altın yıldızlı)
     ctx.font = '700 30px "JetBrains Mono", monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.fillText(`GFP SIRALAMA #${card.rank}`, 148, 122);
+    ctx.fillStyle = legendary ? '#f7c948' : 'rgba(255,255,255,0.45)';
+    ctx.fillText(legendary ? `★ EFSANEVİ #${card.rank}` : `GFP SIRALAMA #${card.rank}`, 148, 122);
     if (anyDamaged) {
       ctx.textAlign = 'right';
       ctx.fillStyle = '#ff6655';
@@ -611,6 +642,7 @@ const Scene3D = (() => {
       instanceId: card.instanceId,
       powerKey: cardPowerKey(card, highlightFront),
       hidden: !!hidden,
+      legendary: card.rank <= 10,
       inner: mesh,
       faceMat
     };
@@ -644,6 +676,13 @@ const Scene3D = (() => {
     // İniş etkisi: toz halkası + hafif yer sarsıntısı
     ringPulse(FRONT_X[front], OWNER_Z[owner], 0xffffff, 2.2);
     addShake(0.14);
+
+    // Efsanevi birim inişi: altın çifte halka + yükselen altın kıvılcımlar
+    if (group.userData.legendary) {
+      ringPulse(FRONT_X[front], OWNER_Z[owner], 0xf7c948, 4.5);
+      setTimeout(() => ringPulse(FRONT_X[front], OWNER_Z[owner], 0xffe08a, 3), 140);
+      sparkleAt(owner, front, 0xffd24a);
+    }
   }
 
   async function animateDissolve(group, destroyed) {
@@ -1138,6 +1177,15 @@ const Scene3D = (() => {
     slotClickCb = cb;
   }
 
+  // Sürükle-bırak için dışarıdan raycast ve hover kontrolü
+  function pickSlotAt(x, y) {
+    return pickSlot(x, y);
+  }
+
+  function setExternalHover(slot) {
+    hoverSlot = slot || null;
+  }
+
   function getScreenPos(owner, front, yOffset = 2.2) {
     const v = new THREE.Vector3(FRONT_X[front], yOffset, OWNER_Z[owner]);
     v.project(camera);
@@ -1379,6 +1427,8 @@ const Scene3D = (() => {
     setTacticTargets,
     setEmptyWarnings,
     onSlotClick,
+    pickSlotAt,
+    setExternalHover,
     getScreenPos
   };
 })();

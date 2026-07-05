@@ -509,11 +509,107 @@ body {
   transform-style: preserve-3d;
 }
 
+.card {
+  cursor: grab;
+  touch-action: none; /* dokunmatik sürüklemede sayfa kaymasın */
+}
+
+.card:active { cursor: grabbing; }
+
 .card:hover {
   transform: translateY(-10px) rotateX(8deg) scale(1.05);
   border-color: var(--color-accent);
   box-shadow: var(--glow-shadow);
   z-index: 5;
+}
+
+/* Sürüklenen kartın eldeki silueti */
+.card.drag-src {
+  opacity: 0.25;
+  transform: none !important;
+  box-shadow: none;
+}
+
+/* Sürükleme hayaleti: imleci takip eden büyüyen kart */
+.drag-ghost {
+  position: fixed;
+  z-index: 4000;
+  pointer-events: none;
+  margin: 0;
+  width: 138px;
+  height: 128px;
+  opacity: 1;
+  will-change: transform, left, top;
+  transform: translate(-50%, -58%) scale(1.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 24px hsla(195, 100%, 50%, 0.4);
+  border-color: var(--color-accent);
+  background: hsla(222, 22%, 14%, 0.97);
+  backdrop-filter: none;
+  transition: none;
+  animation: none;
+}
+
+.drag-ghost.over-slot {
+  border-color: var(--color-success);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 34px hsla(145, 80%, 45%, 0.75);
+}
+
+.drag-ghost.legendary.over-slot {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 38px hsla(45, 100%, 60%, 0.8);
+}
+
+/* ---- Efsanevi (Top 10) kartlar ---- */
+.card.legendary {
+  border-color: hsl(45, 92%, 62%);
+  background:
+    linear-gradient(160deg, hsla(45, 90%, 60%, 0.10) 0%, transparent 45%),
+    var(--bg-card);
+  animation: legendaryGlow 2s ease-in-out infinite alternate;
+}
+
+.card.legendary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 32%, hsla(48, 100%, 80%, 0.22) 50%, transparent 68%);
+  background-size: 260% 100%;
+  animation: legendarySheen 2.8s linear infinite;
+  pointer-events: none;
+}
+
+.card.legendary .card-rank {
+  background: linear-gradient(135deg, hsl(45, 95%, 58%), hsl(38, 95%, 48%));
+  color: hsl(222, 30%, 10%);
+  font-weight: 800;
+  box-shadow: 0 0 8px hsla(45, 100%, 55%, 0.6);
+}
+
+.card.legendary .card-name {
+  color: hsl(46, 100%, 78%);
+  text-shadow: 0 0 8px hsla(45, 100%, 60%, 0.35);
+}
+
+/* Hasar, efsanevi parlamayı bastırır (kırmızı uyarı öncelikli) */
+.card.legendary.damaged {
+  border-color: hsla(0, 85%, 60%, 0.75);
+  animation: none;
+}
+
+@keyframes legendaryGlow {
+  from { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4), 0 0 8px hsla(45, 100%, 55%, 0.35); }
+  to { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4), 0 0 22px hsla(45, 100%, 60%, 0.75); }
+}
+
+@keyframes legendarySheen {
+  from { background-position: 130% 0; }
+  to { background-position: -130% 0; }
+}
+
+/* Hayalet kart tüm animasyon/geçişleri devre dışı bırakır (takip pürüzsüz olsun) */
+.card.drag-ghost {
+  animation: none;
+  transition: none;
 }
 
 .card.selected {
