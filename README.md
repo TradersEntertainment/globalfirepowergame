@@ -1,6 +1,14 @@
-# Global Firepower: Tactical Fronts (Cephe Savaşları)
+# Global Firepower: Tactical Fronts 3D (Cephe Savaşları)
 
-Ülke kartları, liderler ve taktik kartlarıyla **3 cephede** (Kara / Hava / Deniz) oynanan stratejik kart savaşı oyunu. Tamamen bağımsız (vanilla JS) — framework, build adımı veya harici asset gerekmez. Vercel'de statik site olarak yayınlanır.
+Ülke kartları, liderler ve taktik kartlarıyla **3 cephede** (Kara / Hava / Deniz) oynanan, **tamamen 3D** stratejik kart savaşı oyunu. Vercel'de statik site olarak yayınlanır; build adımı gerekmez (Three.js `vendor/` altında yerel olarak paketlidir).
+
+## v3.0 "Full 3D Edition" Özellikleri
+
+- **Holografik 3D Savaş Masası** — Three.js (WebGL) ile: hex cephe platformları, dönen radar halkaları, yıldız alanı, arka planda dönen Dünya hologramı, süzülen toz partikülleri.
+- **3D Kart Meshleri** — Kart yüzleri canvas'ta anlık çizilip doku olarak basılır; güç değişince kart yüzü canlı güncellenir. Düşman kartları sırtı dönük gelir, çatışma anında **3D flip** ile açılır.
+- **3D Oynanış** — Kart yerleştirme raycast ile: elden kart seç, sahnede parlayan hex platforma tıkla. Taktik hedefleme de 3D sahne üzerinde (mor hedef halkaları).
+- **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
+- **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
 ## v2.0 "Steam Edition" Özellikleri
 
@@ -34,11 +42,13 @@ python3 -m http.server 8080
 
 | Dosya | Görev |
 |---|---|
-| `index.html` | Tüm ekranlar (menü, oyun, liderler, başarımlar, perkler) |
-| `app.js` | Oyun döngüsü, savaş çözümü, AI, kampanya, taktikler |
+| `index.html` | 3D sahne + HUD + tüm overlay ekranları |
+| `scene3d.js` | Three.js savaş sahnesi: platformlar, kart meshleri, efektler, kamera, raycast |
+| `app.js` | Oyun döngüsü, savaş çözümü, AI, kampanya, taktikler, HUD |
 | `countries.js` | 30 ülke kartı veri tabanı |
 | `leaders.js` | 8 lider ve pasif yetenekleri |
 | `tactics.js` | 6 taktik kartı tanımı |
 | `meta.js` | Madalya/başarım/istatistik kalıcılığı (localStorage) |
 | `audio.js` | WebAudio prosedürel ses motoru |
-| `styles.css` | Tema ve tüm animasyonlar |
+| `styles.css` | HUD, modaller ve UI animasyonları |
+| `vendor/three.min.js` | Three.js r128 (yerel, CDN bağımlılığı yok) |

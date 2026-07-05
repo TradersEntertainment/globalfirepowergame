@@ -1,4 +1,6 @@
-// Global Firepower: Tactical Fronts - Game Logic (V2.0 "Steam Edition")
+// Global Firepower: Tactical Fronts - Game Logic (V3.0 "Full 3D Edition")
+// Savaş alanı artık tamamen 3D (scene3d.js). Bu dosya oyun kurallarını,
+// HUD'u ve 3D sahne ile senkronizasyonu yönetir.
 
 // ==========================================================================
 // State
@@ -10,7 +12,7 @@ let deck = [];
 let playerHand = [];
 let aiHand = [];
 let round = 1;
-let gameState = 'menu'; // 'menu', 'leader_selection', 'planning', 'battle', 'gameover'
+let gameState = 'menu'; // 'menu', 'leader_selection', 'dealing', 'planning', 'battle', 'gameover'
 
 let gameMode = 'quick';       // 'quick' | 'campaign'
 let difficulty = 'normal';    // 'easy' | 'normal' | 'hard'
@@ -29,19 +31,20 @@ let reconActive = false;
 let empActive = false; // rakip lider pasifi bu tur devre dışı
 
 // Campaign State
-let campaignStage = 0; // 1-5 arası aktifken
+let campaignStage = 0;
 let campaignPerks = {
   powerBonus: { land: 0, air: 0, sea: 0 },
   medicHeal: 0
 };
 
-// Battle tracking (başarımlar için)
+// Battle tracking (başarımlar + 3D reveal durumu)
 let playerFrontWinsThisBattle = 0;
+const revealedFronts = new Set();
+let destroyedHint = {}; // {"ai-land": true} → 3D sahnede patlayarak yok olsun
 
 // Unique Card ID generator
 let cardInstanceCounter = 0;
 
-// Active board slots
 const board = {
   player: { land: null, air: null, sea: null },
   ai: { land: null, air: null, sea: null }
@@ -98,18 +101,18 @@ const CAMPAIGN_STAGES = [
 ];
 
 const PERK_POOL = [
-  { id: "repair",    icon: "fa-screwdriver-wrench", name: "ACİL ONARIM",     desc: "Komuta merkezi onarılır: anında +35 HP." },
-  { id: "land_re",   icon: "fa-trowel-bricks",      name: "ZIRHLI TAKVİYE",  desc: "Harekât boyunca yerleştirilen Kara birimlerine +4 Güç." },
-  { id: "air_re",    icon: "fa-jet-fighter",        name: "FİLO TAKVİYESİ",  desc: "Harekât boyunca yerleştirilen Hava birimlerine +4 Güç." },
+  { id: "repair",    icon: "fa-screwdriver-wrench", name: "ACİL ONARIM",       desc: "Komuta merkezi onarılır: anında +35 HP." },
+  { id: "land_re",   icon: "fa-trowel-bricks",      name: "ZIRHLI TAKVİYE",    desc: "Harekât boyunca yerleştirilen Kara birimlerine +4 Güç." },
+  { id: "air_re",    icon: "fa-jet-fighter",        name: "FİLO TAKVİYESİ",    desc: "Harekât boyunca yerleştirilen Hava birimlerine +4 Güç." },
   { id: "sea_re",    icon: "fa-ship",               name: "DONANMA TAKVİYESİ", desc: "Harekât boyunca yerleştirilen Deniz birimlerine +4 Güç." },
-  { id: "tactics2",  icon: "fa-chess-knight",       name: "HARP AKADEMİSİ",  desc: "Anında 2 taktik kartı kazanırsın." },
-  { id: "medic",     icon: "fa-truck-medical",      name: "SEYYAR HASTANE",  desc: "Harekât boyunca her tur sonunda +3 HP yenilenir." }
+  { id: "tactics2",  icon: "fa-chess-knight",       name: "HARP AKADEMİSİ",    desc: "Anında 2 taktik kartı kazanırsın." },
+  { id: "medic",     icon: "fa-truck-medical",      name: "SEYYAR HASTANE",    desc: "Harekât boyunca her tur sonunda +3 HP yenilenir." }
 ];
 
 // ==========================================================================
 // DOM Elements
 // ==========================================================================
-const gameContainer = document.querySelector('.game-container');
+const hudEl = document.getElementById('hud');
 const aiHpBar = document.getElementById('ai-hp-bar');
 const aiHpVal = document.getElementById('ai-hp-val');
 const aiHpMaxEl = document.getElementById('ai-hp-max');
@@ -126,6 +129,7 @@ const btnSound = document.getElementById('btn-sound');
 const combatLog = document.getElementById('combat-log');
 const deckPile = document.getElementById('deck-pile');
 const tacticsBar = document.getElementById('tactics-bar');
+const logPanel = document.getElementById('log-panel');
 
 // Overlays
 const mainMenuOverlay = document.getElementById('main-menu-overlay');
@@ -149,19 +153,6 @@ const aiLeaderDisplay = document.getElementById('ai-leader-display');
 
 const campaignIndicator = document.getElementById('campaign-indicator');
 const campaignStageNum = document.getElementById('campaign-stage-num');
-
-// Slot Containers
-const playerSlots = {
-  land: document.getElementById('player-card-land'),
-  air: document.getElementById('player-card-air'),
-  sea: document.getElementById('player-card-sea')
-};
-
-const aiSlots = {
-  land: document.getElementById('ai-card-land'),
-  air: document.getElementById('ai-card-air'),
-  sea: document.getElementById('ai-card-sea')
-};
 
 // Modals
 const gameOverOverlay = document.getElementById('game-over-overlay');
@@ -194,19 +185,20 @@ function getHandLimit(owner) {
 }
 
 function isLeaderActive(owner) {
-  // EMP oynandıysa AI liderinin pasifi bu tur devre dışıdır
   if (owner === 'ai' && empActive) return false;
   return true;
 }
 
+function slotScreenPos(owner, front) {
+  return Scene3D.getScreenPos(owner, front);
+}
+
 // ==========================================================================
-// Visual Effects Engine (Particles, Shake, Damage Numbers)
+// HTML VFX (HP barları ve UI için; savaş alanı efektleri 3D sahnede)
 // ==========================================================================
 function triggerScreenShake() {
-  gameContainer.classList.add('screen-shake');
-  setTimeout(() => {
-    gameContainer.classList.remove('screen-shake');
-  }, 350);
+  hudEl.classList.add('screen-shake');
+  setTimeout(() => hudEl.classList.remove('screen-shake'), 350);
 }
 
 function spawnFloatingDmg(x, y, text, isHeal = false, isText = false) {
@@ -228,24 +220,13 @@ function spawnClashParticles(x, y, colorType = 'cyan') {
     p.className = `clash-particle ${colorType === 'gold' ? 'gold' : colorType === 'red' ? 'red' : ''}`;
     p.style.left = `${x}px`;
     p.style.top = `${y}px`;
-
     const angle = Math.random() * Math.PI * 2;
     const distance = 40 + Math.random() * 80;
     p.style.setProperty('--tx', `${Math.cos(angle) * distance}px`);
     p.style.setProperty('--ty', `${Math.sin(angle) * distance}px`);
-
     document.body.appendChild(p);
     setTimeout(() => p.remove(), 700);
   }
-}
-
-function spawnClashRing(x, y) {
-  const ring = document.createElement('div');
-  ring.className = 'clash-ring';
-  ring.style.left = `${x}px`;
-  ring.style.top = `${y}px`;
-  document.body.appendChild(ring);
-  setTimeout(() => ring.remove(), 500);
 }
 
 // ==========================================================================
@@ -268,7 +249,46 @@ function showAchievementToast(def) {
 }
 
 // ==========================================================================
-// Card Draw Animations
+// 3D Board Senkronizasyonu
+// ==========================================================================
+function isAiCardHidden(front) {
+  if (reconActive) return false;
+  if (gameState === 'planning' || gameState === 'dealing') return true;
+  if (gameState === 'battle') return !revealedFronts.has(front);
+  return false;
+}
+
+function buildBoardView() {
+  const view = { player: {}, ai: {}, destroyedHint };
+  ['land', 'air', 'sea'].forEach(front => {
+    const pCard = board.player[front];
+    view.player[front] = pCard ? { card: pCard, hidden: false, highlight: front } : null;
+
+    const aCard = board.ai[front];
+    view.ai[front] = aCard ? { card: aCard, hidden: isAiCardHidden(front), highlight: front } : null;
+  });
+  return view;
+}
+
+async function refreshBoard() {
+  const view = buildBoardView();
+  const syncPromise = Scene3D.syncBoard(view);
+  destroyedHint = {};
+
+  // Boş cephe uyarıları (planlama sırasında oyuncu tarafı)
+  const warnings = [];
+  if (gameState === 'planning') {
+    ['land', 'air', 'sea'].forEach(front => {
+      if (!board.player[front]) warnings.push({ owner: 'player', front });
+    });
+  }
+  Scene3D.setEmptyWarnings(warnings);
+
+  await syncPromise;
+}
+
+// ==========================================================================
+// Card Draw & Deck
 // ==========================================================================
 async function animateCardDraw(isPlayer, card) {
   const deckRect = deckPile.getBoundingClientRect();
@@ -292,20 +312,15 @@ async function animateCardDraw(isPlayer, card) {
 
     if (targetCardEl) {
       targetCardEl.style.opacity = '0';
-      targetCardEl.style.transform = 'translateY(20px)';
-
       const targetRect = targetCardEl.getBoundingClientRect();
       flyer.getBoundingClientRect();
       flyer.style.left = `${targetRect.left}px`;
       flyer.style.top = `${targetRect.top}px`;
       flyer.style.transform = 'scale(1) rotate(0deg)';
 
-      await delay(600);
-
+      await delay(520);
       flyer.remove();
       targetCardEl.style.opacity = '1';
-      targetCardEl.style.transform = '';
-      targetCardEl.style.transition = 'var(--transition-smooth)';
     } else {
       flyer.remove();
     }
@@ -320,13 +335,13 @@ async function animateCardDraw(isPlayer, card) {
     flyer.style.transform = 'scale(0.3) rotate(-15deg)';
     flyer.style.opacity = '0.3';
 
-    await delay(600);
+    await delay(520);
     flyer.remove();
   }
 }
 
 async function fillHandsAnimated() {
-  const drawDelay = 160;
+  const drawDelay = 140;
   const pLimit = getHandLimit('player');
   const aLimit = getHandLimit('ai');
 
@@ -384,7 +399,6 @@ function refreshMenuStats() {
   document.getElementById('ach-count').innerText = Object.keys(META.achievements).length;
   document.getElementById('ach-total').innerText = ACHIEVEMENTS_DB.length;
 
-  // Kampanya ilerleme çizgisi
   const nodes = document.querySelectorAll('#campaign-track .track-node');
   nodes.forEach((node, idx) => {
     node.classList.toggle('cleared', idx < META.stats.campaignBest);
@@ -397,6 +411,7 @@ function showMainMenu() {
   gameState = 'menu';
   campaignStage = 0;
   refreshMenuStats();
+  Scene3D.cameraMenu();
   mainMenuOverlay.classList.remove('hidden');
   leaderSelectionOverlay.classList.add('hidden');
   gameOverOverlay.classList.add('hidden');
@@ -531,7 +546,6 @@ btnConfirmBuy.addEventListener('click', () => {
   const rect = btnConfirmBuy.getBoundingClientRect();
   spawnClashParticles(rect.left + rect.width / 2, rect.top, 'gold');
 
-  // Koleksiyoncu başarımı: tüm liderler açıldı mı?
   if (LEADERS_DB.every(l => isLeaderUnlocked(l))) {
     unlockAchievement('collector');
   }
@@ -549,7 +563,6 @@ function selectPlayerLeader(leader) {
     return;
   }
 
-  // Hızlı Savaş: rastgele AI lideri (açık olanlardan)
   const availableLeaders = LEADERS_DB.filter(l => isLeaderUnlocked(l));
   aiLeader = availableLeaders[Math.floor(Math.random() * availableLeaders.length)];
   aiNameEl.innerText = `Yapay Zeka (${difficulty === 'easy' ? 'Kolay' : difficulty === 'hard' ? 'Zor' : 'Normal'})`;
@@ -559,21 +572,20 @@ function selectPlayerLeader(leader) {
   writeLog(`Komutan ${playerLeader.name} liderliğini seçti! (${playerLeader.title})`, 'player');
   writeLog(`Yapay Zeka ${aiLeader.name} liderliğini seçti! (${aiLeader.title})`, 'ai');
 
-  gameState = 'planning';
   resetMatch();
 }
 
 function updateLeaderDisplays() {
   playerLeaderDisplay.innerHTML = `
     <span>${playerLeader.flag} ${playerLeader.name}</span>
-    <span class="sub-title" style="font-size:0.6rem; display:block; color:var(--color-warning);" title="${playerLeader.desc}">
+    <span class="sub-title" title="${playerLeader.desc}">
       <i class="fa-solid fa-bolt"></i> ${playerLeader.title}
     </span>
   `;
 
   aiLeaderDisplay.innerHTML = `
     <span>${aiLeader.flag} ${aiLeader.name}</span>
-    <span class="sub-title" style="font-size:0.6rem; display:block; color:var(--color-warning);" title="${aiLeader.desc}">
+    <span class="sub-title" title="${aiLeader.desc}">
       <i class="fa-solid fa-bolt"></i> ${aiLeader.title}
     </span>
   `;
@@ -594,7 +606,6 @@ function startCampaignStage(stageNum) {
   campaignStage = stageNum;
   const stage = CAMPAIGN_STAGES[stageNum - 1];
 
-  // Cepheler arası otomatik saha onarımı
   if (stageNum > 1) {
     playerHP = Math.min(100, playerHP + 20);
   }
@@ -610,7 +621,6 @@ function startCampaignStage(stageNum) {
 
   updateLeaderDisplays();
 
-  gameState = 'planning';
   resetMatch({ keepPlayerHP: stageNum > 1, aiTacticCount: stage.aiTacticCount });
 
   writeLog(`━━━ CEPHE ${stageNum}/5: ${stage.name} (${stage.title}) ━━━`, 'ability');
@@ -697,7 +707,7 @@ function renderTactics() {
   tacticsBar.innerHTML = '';
 
   if (playerTactics.length === 0) {
-    tacticsBar.innerHTML = '<span class="tactics-empty">Taktik kartın yok. Her 3 turda bir yenisi gelir.</span>';
+    tacticsBar.innerHTML = '<span class="tactics-empty">Taktik yok. Her 3 turda bir yenisi gelir.</span>';
     return;
   }
 
@@ -716,7 +726,7 @@ function renderTactics() {
 
       if (selectedTacticIdx === idx) {
         selectedTacticIdx = null;
-        clearTacticTargets();
+        Scene3D.setTacticTargets(null);
         renderTactics();
         return;
       }
@@ -724,7 +734,7 @@ function renderTactics() {
       selectedTacticIdx = idx;
       selectedHandCardIdx = null;
       renderHand();
-      highlightActiveSlots();
+      Scene3D.setDeployMode(false);
       renderTactics();
 
       if (tactic.target === 'none') {
@@ -739,17 +749,9 @@ function renderTactics() {
 }
 
 function armTacticTargets(tactic) {
-  clearTacticTargets();
   const side = tactic.target === 'enemy' ? 'ai' : 'player';
-  ['land', 'air', 'sea'].forEach(front => {
-    if (board[side][front]) {
-      document.getElementById(`${side}-slot-${front}`).classList.add('tactic-target');
-    }
-  });
-}
-
-function clearTacticTargets() {
-  document.querySelectorAll('.tactic-target').forEach(el => el.classList.remove('tactic-target'));
+  const fronts = ['land', 'air', 'sea'].filter(front => board[side][front]);
+  Scene3D.setTacticTargets(side, fronts);
 }
 
 function consumeTactic(idx) {
@@ -759,7 +761,7 @@ function consumeTactic(idx) {
   META.stats.tacticsPlayed++;
   saveMeta();
   if (META.stats.tacticsPlayed >= 10) unlockAchievement('tactician');
-  clearTacticTargets();
+  Scene3D.setTacticTargets(null);
   renderTactics();
 }
 
@@ -771,7 +773,7 @@ function playInstantTactic(idx) {
     case 'recon': {
       reconActive = true;
       writeLog(`🛰 Keşif Uydusu aktif: Düşman kartları bu tur boyunca görünür!`, 'ability');
-      renderBoard();
+      refreshBoard();
       break;
     }
     case 'hospital': {
@@ -798,7 +800,7 @@ function playInstantTactic(idx) {
       writeLog(`⚡ EMP Saldırısı: ${aiLeader.name} liderinin pasifi bu turki savaşta devre dışı!`, 'ability');
       const aiRect = document.querySelector('.ai-avatar').getBoundingClientRect();
       spawnClashParticles(aiRect.left + 22, aiRect.top + 22, 'cyan');
-      spawnFloatingDmg(aiRect.left + 22, aiRect.top - 10, 'EMP!', false, true);
+      spawnFloatingDmg(aiRect.left + 22, aiRect.top + 50, 'EMP!', false, true);
       break;
     }
   }
@@ -806,47 +808,41 @@ function playInstantTactic(idx) {
   consumeTactic(idx);
 }
 
-function playTargetedTactic(idx, side, front) {
+async function playTargetedTactic(idx, side, front) {
   const tactic = playerTactics[idx];
   const card = board[side][front];
   if (!card) return;
 
   sfx('tactic');
-  const slot = document.getElementById(`${side}-slot-${front}`);
-  const rect = slot.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
+  consumeTactic(idx);
+  const pos = slotScreenPos(side, front);
 
   if (tactic.id === 'airstrike') {
+    sfx('explosion');
+    await Scene3D.missileStrike('player', front, 0xff5533);
     card.currentPower[front] = Math.max(0, card.currentPower[front] - tactic.val);
     writeLog(`🚀 Hava Harekâtı: Düşmanın ${front === 'land' ? 'Kara' : front === 'air' ? 'Hava' : 'Deniz'} birimi -${tactic.val} güç kaybetti!`, 'ability');
-    spawnClashRing(cx, cy);
-    spawnClashParticles(cx, cy, 'red');
-    spawnFloatingDmg(cx, cy, `-${tactic.val} GÜÇ`);
-    sfx('explosion');
+    spawnFloatingDmg(pos.x, pos.y, `-${tactic.val} GÜÇ`);
     triggerScreenShake();
 
-    // Güç sıfırlandıysa birim imha olur
     if (card.currentPower[front] <= 0) {
       writeLog(`Düşman birimi ${card.flag} ${card.name} hava harekâtıyla imha edildi!`, 'player');
-      destroyUnit('ai', front, card);
+      destroyUnit('ai', front, card, true);
     }
   } else if (tactic.id === 'fortify') {
     card.currentPower[front] += tactic.val;
     writeLog(`🛡 İstihkam: ${card.flag} ${card.name} +${tactic.val} güç kazandı!`, 'ability');
-    spawnFloatingDmg(cx, cy, `+${tactic.val} GÜÇ`, true);
-    spawnClashParticles(cx, cy, 'gold');
+    spawnFloatingDmg(pos.x, pos.y, `+${tactic.val} GÜÇ`, true);
+    Scene3D.sparkleAt(side, front, 0x39ff88);
   }
 
-  consumeTactic(idx);
-  renderBoard();
+  refreshBoard();
 }
 
 // AI taktik kullanımı (savaş başlangıcında, basit sezgisel kurallar)
-function aiUseTactics() {
+async function aiUseTactics() {
   if (aiTactics.length === 0) return;
 
-  // Tur başına en fazla 1 taktik
   for (let i = 0; i < aiTactics.length; i++) {
     const tactic = aiTactics[i];
 
@@ -854,13 +850,13 @@ function aiUseTactics() {
       aiHP = Math.min(aiMaxHP, aiHP + tactic.val);
       updateHpDisplay();
       writeLog(`Düşman Sahra Hastanesi kurdu: +${tactic.val} HP iyileşti.`, 'ai');
+      Scene3D.sparkleAt('ai', 'air', 0x39ff88);
       aiTactics.splice(i, 1);
       return;
     }
 
     if (tactic.id === 'airstrike') {
-      // Oyuncunun en güçlü birimini vur
-      let bestFront = null, bestPower = 14; // ancak değecek bir hedef varsa kullan
+      let bestFront = null, bestPower = 14;
       ['land', 'air', 'sea'].forEach(front => {
         const c = board.player[front];
         if (c && c.currentPower[front] > bestPower) {
@@ -870,24 +866,23 @@ function aiUseTactics() {
       });
       if (bestFront) {
         const target = board.player[bestFront];
+        aiTactics.splice(i, 1);
+        sfx('explosion');
+        await Scene3D.missileStrike('ai', bestFront, 0xff5533);
         target.currentPower[bestFront] = Math.max(0, target.currentPower[bestFront] - tactic.val);
         writeLog(`Düşman Hava Harekâtı düzenledi: ${target.flag} ${target.name} -${tactic.val} güç!`, 'ai');
-        const slot = document.getElementById(`player-slot-${bestFront}`);
-        const rect = slot.getBoundingClientRect();
-        spawnClashRing(rect.left + rect.width / 2, rect.top + rect.height / 2);
-        spawnClashParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 'red');
-        sfx('explosion');
+        const pos = slotScreenPos('player', bestFront);
+        spawnFloatingDmg(pos.x, pos.y, `-${tactic.val} GÜÇ`);
         if (target.currentPower[bestFront] <= 0) {
           writeLog(`${target.flag} ${target.name} hava harekâtıyla imha edildi!`, 'ai');
-          destroyUnit('player', bestFront, target);
+          destroyUnit('player', bestFront, target, true);
         }
-        aiTactics.splice(i, 1);
+        await refreshBoard();
         return;
       }
     }
 
     if (tactic.id === 'fortify') {
-      // En güçlü kendi birimini güçlendir
       let bestFront = null, bestPower = -1;
       ['land', 'air', 'sea'].forEach(front => {
         const c = board.ai[front];
@@ -899,6 +894,7 @@ function aiUseTactics() {
       if (bestFront) {
         board.ai[bestFront].currentPower[bestFront] += tactic.val;
         writeLog(`Düşman cephesini tahkim etti: +${tactic.val} güç.`, 'ai');
+        Scene3D.sparkleAt('ai', bestFront, 0xffaa33);
         aiTactics.splice(i, 1);
         return;
       }
@@ -907,14 +903,10 @@ function aiUseTactics() {
 }
 
 // ==========================================================================
-// Board & Hand Rendering
+// Hand Rendering (HTML)
 // ==========================================================================
-function getCardHTML(card, frontType = null) {
+function getCardHTML(card) {
   const isLandlocked = card.sea === 0;
-
-  const landHighlight = frontType === 'land' ? 'land-highlight' : '';
-  const airHighlight = frontType === 'air' ? 'air-highlight' : '';
-  const seaHighlight = frontType === 'sea' ? 'sea-highlight' : '';
 
   return `
     <div class="card-header">
@@ -925,22 +917,20 @@ function getCardHTML(card, frontType = null) {
       <span class="card-rank">#${card.rank}</span>
     </div>
     <div class="card-stats">
-      <div class="stat-row land-row ${landHighlight}">
+      <div class="stat-row">
         <span><i class="fa-solid fa-trowel-bricks"></i> Kara</span>
         <span class="stat-val">${card.currentPower.land}</span>
       </div>
-      <div class="stat-row air-row ${airHighlight}">
+      <div class="stat-row">
         <span><i class="fa-solid fa-jet-fighter"></i> Hava</span>
         <span class="stat-val">${card.currentPower.air}</span>
       </div>
-      <div class="stat-row sea-row ${seaHighlight}">
+      <div class="stat-row">
         <span><i class="fa-solid fa-ship"></i> Deniz</span>
         <span class="stat-val ${isLandlocked ? 'text-danger' : ''}">${card.currentPower.sea}</span>
       </div>
     </div>
-    <div class="sub-title" style="font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${card.desc}">
-      ${card.desc}
-    </div>
+    <div class="sub-title" title="${card.desc}">${card.desc}</div>
   `;
 }
 
@@ -958,114 +948,21 @@ function renderHand() {
       if (gameState !== 'planning') return;
       sfx('click');
 
-      // Kart seçimi taktik hedeflemesini iptal eder
       selectedTacticIdx = null;
-      clearTacticTargets();
+      Scene3D.setTacticTargets(null);
       renderTactics();
 
       selectedHandCardIdx = selectedHandCardIdx === idx ? null : idx;
       renderHand();
-      highlightActiveSlots();
+      Scene3D.setDeployMode(selectedHandCardIdx !== null);
     });
 
     playerHandEl.appendChild(cardEl);
   });
 }
 
-function highlightActiveSlots() {
-  Object.keys(playerSlots).forEach(front => {
-    const slot = document.getElementById(`player-slot-${front}`);
-    slot.classList.toggle('slot-highlight', selectedHandCardIdx !== null);
-  });
-}
-
-function getEmptySlotHTML(front) {
-  let icon = 'fa-trowel-bricks';
-  if (front === 'air') icon = 'fa-jet-fighter';
-  if (front === 'sea') icon = 'fa-ship';
-
-  return `
-    <div class="empty-slot-msg">
-      <i class="fa-solid ${icon}"></i>
-      <span>BOŞ CEPHE</span>
-    </div>
-  `;
-}
-
-function renderBoard() {
-  // Player Slots
-  Object.keys(board.player).forEach(front => {
-    const container = playerSlots[front];
-    const slotParent = document.getElementById(`player-slot-${front}`);
-    const card = board.player[front];
-
-    container.innerHTML = '';
-
-    if (card) {
-      slotParent.classList.remove('empty-warning');
-      const cardEl = document.createElement('div');
-      cardEl.className = 'card';
-      cardEl.innerHTML = getCardHTML(card, front);
-
-      cardEl.addEventListener('click', (e) => {
-        if (gameState !== 'planning') return;
-        e.stopPropagation();
-
-        // Hedefli taktik bu karta mı oynanıyor?
-        if (selectedTacticIdx !== null && playerTactics[selectedTacticIdx] && playerTactics[selectedTacticIdx].target === 'ally') {
-          playTargetedTactic(selectedTacticIdx, 'player', front);
-          return;
-        }
-
-        sfx('pickup');
-        removeDeployModifiers(card, front, 'player');
-
-        playerHand.push(card);
-        board.player[front] = null;
-        selectedHandCardIdx = null;
-
-        renderHand();
-        renderBoard();
-      });
-
-      container.appendChild(cardEl);
-    } else {
-      container.innerHTML = getEmptySlotHTML(front);
-      slotParent.classList.add('empty-warning');
-    }
-  });
-
-  // AI Slots
-  Object.keys(board.ai).forEach(front => {
-    const container = aiSlots[front];
-    const slotParent = document.getElementById(`ai-slot-${front}`);
-    const card = board.ai[front];
-
-    container.innerHTML = '';
-    slotParent.classList.remove('empty-warning');
-
-    if (card) {
-      const cardEl = document.createElement('div');
-
-      if (gameState === 'planning' && !reconActive) {
-        cardEl.className = 'card card-back';
-        cardEl.innerHTML = `<i class="fa-solid fa-user-secret"></i>`;
-      } else {
-        cardEl.className = 'card';
-        cardEl.innerHTML = getCardHTML(card, front);
-      }
-      container.appendChild(cardEl);
-    } else {
-      container.innerHTML = getEmptySlotHTML(front);
-      if (gameState === 'planning') {
-        slotParent.classList.add('empty-warning');
-      }
-    }
-  });
-}
-
 // ==========================================================================
-// Deploy Modifiers: Lider buffları + kampanya perk bonusları + AI güç bonusu
+// Deploy Modifiers
 // ==========================================================================
 function getDeployBonus(front, owner) {
   let bonus = 0;
@@ -1099,11 +996,9 @@ function applyDeployModifiers(card, front, owner) {
     writeLog(`${leader.flag} ${leader.name} pasifi etkinleşti: birime destek verildi (+${bonus} toplam)!`, owner === 'player' ? 'player' : 'ai');
   }
 
-  const slot = document.getElementById(`${owner}-slot-${front}`);
-  if (slot) {
-    const rect = slot.getBoundingClientRect();
-    spawnFloatingDmg(rect.left + rect.width / 2, rect.top + rect.height / 2, `+${bonus} Güç`, true);
-  }
+  const pos = slotScreenPos(owner, front);
+  spawnFloatingDmg(pos.x, pos.y, `+${bonus} Güç`, true);
+  Scene3D.sparkleAt(owner, front, 0x39ff88);
 }
 
 function removeDeployModifiers(card, front, owner) {
@@ -1113,57 +1008,62 @@ function removeDeployModifiers(card, front, owner) {
 }
 
 // ==========================================================================
-// Slot Click Handling (deploy + tactic targeting)
+// 3D Slot Etkileşimi (raycast'ten gelir)
 // ==========================================================================
-function handleSlotClick(front) {
+function handleSceneSlotClick(owner, front) {
   if (gameState !== 'planning') return;
 
-  // Hedefli taktik: kendi cephemize (fortify)
-  if (selectedTacticIdx !== null && playerTactics[selectedTacticIdx] && playerTactics[selectedTacticIdx].target === 'ally') {
-    if (board.player[front]) {
+  // Hedefli taktik oynanıyor mu?
+  if (selectedTacticIdx !== null && playerTactics[selectedTacticIdx]) {
+    const tactic = playerTactics[selectedTacticIdx];
+    if (tactic.target === 'ally' && owner === 'player' && board.player[front]) {
       playTargetedTactic(selectedTacticIdx, 'player', front);
+      return;
+    }
+    if (tactic.target === 'enemy' && owner === 'ai' && board.ai[front]) {
+      playTargetedTactic(selectedTacticIdx, 'ai', front);
+      return;
     }
     return;
   }
 
-  if (selectedHandCardIdx === null) return;
+  if (owner !== 'player') return;
 
-  const selectedCard = playerHand[selectedHandCardIdx];
+  // Elde seçili kart varsa → konuşlandır
+  if (selectedHandCardIdx !== null) {
+    const selectedCard = playerHand[selectedHandCardIdx];
 
-  const existing = board.player[front];
-  if (existing) {
-    removeDeployModifiers(existing, front, 'player');
-    playerHand.push(existing);
+    const existing = board.player[front];
+    if (existing) {
+      removeDeployModifiers(existing, front, 'player');
+      playerHand.push(existing);
+    }
+
+    sfx('deploy');
+    board.player[front] = selectedCard;
+    applyDeployModifiers(selectedCard, front, 'player');
+
+    playerHand.splice(selectedHandCardIdx, 1);
+    selectedHandCardIdx = null;
+
+    renderHand();
+    Scene3D.setDeployMode(false);
+    refreshBoard();
+    return;
   }
 
-  sfx('deploy');
-  board.player[front] = selectedCard;
-  applyDeployModifiers(selectedCard, front, 'player');
+  // Kart seçili değilse → sahadaki kartı geri al
+  if (board.player[front]) {
+    sfx('pickup');
+    const card = board.player[front];
+    removeDeployModifiers(card, front, 'player');
+    playerHand.push(card);
+    board.player[front] = null;
 
-  playerHand.splice(selectedHandCardIdx, 1);
-  selectedHandCardIdx = null;
-
-  renderHand();
-  renderBoard();
-  highlightActiveSlots();
+    renderHand();
+    refreshBoard();
+  }
 }
-
-Object.keys(playerSlots).forEach(front => {
-  const slot = document.getElementById(`player-slot-${front}`);
-  slot.addEventListener('click', () => handleSlotClick(front));
-});
-
-// Düşman cephelerine tıklama: sadece hedefli taktik (airstrike) için
-Object.keys(aiSlots).forEach(front => {
-  const slot = document.getElementById(`ai-slot-${front}`);
-  slot.addEventListener('click', () => {
-    if (gameState !== 'planning' || selectedTacticIdx === null) return;
-    const tactic = playerTactics[selectedTacticIdx];
-    if (tactic && tactic.target === 'enemy' && board.ai[front]) {
-      playTargetedTactic(selectedTacticIdx, 'ai', front);
-    }
-  });
-});
 
 // ==========================================================================
 // HP Display
@@ -1184,7 +1084,7 @@ function updateHpDisplay() {
 }
 
 // ==========================================================================
-// AI Turn Logic - Zorluk profilleri
+// AI Turn Logic
 // ==========================================================================
 function getAiProfile() {
   switch (difficulty) {
@@ -1208,7 +1108,6 @@ function aiPickCandidate(front, profile) {
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
-  // Zor AI: oyuncunun görünen kartını minimum israfla yenmeye çalışır
   if (profile.counter) {
     const playerCard = board.player[front];
     if (playerCard) {
@@ -1235,7 +1134,6 @@ function aiPlayTurn() {
     const existing = board.ai[front];
 
     if (!existing) {
-      // Kolay AI bazen cepheyi boş bırakır
       if (profile.skipChance > 0 && Math.random() < profile.skipChance) return;
 
       const pick = aiPickCandidate(front, profile);
@@ -1263,7 +1161,6 @@ function aiPlayTurn() {
     }
   });
 
-  // AI elini arka planda doldurur
   while (aiHand.length < getHandLimit('ai') && deck.length > 0) {
     aiHand.push(getNextDeckCard());
   }
@@ -1278,9 +1175,9 @@ function applyLandDebuffs() {
     if (aiLand) {
       aiLand.currentPower.land = Math.max(0, aiLand.currentPower.land - playerLeader.abilityVal);
       writeLog(`${playerLeader.flag} ${playerLeader.name} yeteneği: Düşman Kara birimi kalıcı olarak -${playerLeader.abilityVal} güç kaybetti!`, 'player');
-
-      const rect = document.getElementById('ai-slot-land').getBoundingClientRect();
-      spawnFloatingDmg(rect.left + rect.width / 2, rect.top + rect.height / 2, `-${playerLeader.abilityVal} Güç`);
+      const pos = slotScreenPos('ai', 'land');
+      spawnFloatingDmg(pos.x, pos.y, `-${playerLeader.abilityVal} Güç`);
+      Scene3D.sparkleAt('ai', 'land', 0xff4444);
     }
   }
 
@@ -1289,9 +1186,9 @@ function applyLandDebuffs() {
     if (playerLand) {
       playerLand.currentPower.land = Math.max(0, playerLand.currentPower.land - aiLeader.abilityVal);
       writeLog(`${aiLeader.flag} ${aiLeader.name} yeteneği: Kara biriminiz kalıcı olarak -${aiLeader.abilityVal} güç kaybetti!`, 'ai');
-
-      const rect = document.getElementById('player-slot-land').getBoundingClientRect();
-      spawnFloatingDmg(rect.left + rect.width / 2, rect.top + rect.height / 2, `-${aiLeader.abilityVal} Güç`);
+      const pos = slotScreenPos('player', 'land');
+      spawnFloatingDmg(pos.x, pos.y, `-${aiLeader.abilityVal} Güç`);
+      Scene3D.sparkleAt('player', 'land', 0xff4444);
     }
   }
 }
@@ -1323,11 +1220,11 @@ function applyNukes() {
       const newPower = Math.ceil(oldPower * attackerLeader.abilityVal);
       targetCard.currentPower[strongestFront] = newPower;
       sfx('nuke');
+      Scene3D.nukeStrike(targetSide, strongestFront);
       writeLog(`${attackerLeader.flag} ${attackerLeader.name} NÜKLEER pasifi: ${targetCard.flag} ${targetCard.name} gücü ${oldPower} → ${newPower}!`, attackerOwner === 'player' ? 'player' : 'ai');
 
-      const rect = document.getElementById(`${targetSide}-slot-${strongestFront}`).getBoundingClientRect();
-      spawnFloatingDmg(rect.left + rect.width / 2, rect.top + rect.height / 2, `½ GÜÇ`, false, true);
-      spawnClashParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 'red');
+      const pos = slotScreenPos(targetSide, strongestFront);
+      spawnFloatingDmg(pos.x, pos.y, `½ GÜÇ`, false, true);
     }
   };
 
@@ -1343,13 +1240,11 @@ function handleMacronMitigation(damage, target) {
     if (target === 'player') {
       playerHP += mitigation;
       writeLog(`${leader.flag} ${leader.name} pasifi ile can kaybı **${mitigation} HP** azaltıldı!`, 'player');
-
       const rect = playerHpBar.getBoundingClientRect();
       spawnFloatingDmg(rect.left + rect.width / 2, rect.top - 30, `+${mitigation} HP SAVUNMA`, true);
     } else {
       aiHP += mitigation;
       writeLog(`${leader.flag} ${leader.name} pasifi ile düşman can kaybı **${mitigation} HP** azaltıldı!`, 'ai');
-
       const rect = aiHpBar.getBoundingClientRect();
       spawnFloatingDmg(rect.left + rect.width / 2, rect.top + 30, `+${mitigation} HP SAVUNMA`, true);
     }
@@ -1357,10 +1252,10 @@ function handleMacronMitigation(damage, target) {
 }
 
 // ==========================================================================
-// Unit Destruction (Kamikaze, İsviçre çekilmesi, Zelenskiy pasifi)
+// Unit Destruction
 // ==========================================================================
-function destroyUnit(owner, front, card) {
-  // İsviçre: Taktiksel Çekilme (yok olmak yerine yarı güçle ele döner)
+function destroyUnit(owner, front, card, exploded = false) {
+  // İsviçre: Taktiksel Çekilme
   if (card.id === 'switzerland') {
     card.currentPower.land = Math.ceil(card.currentPower.land / 2);
     card.currentPower.air = Math.ceil(card.currentPower.air / 2);
@@ -1369,27 +1264,26 @@ function destroyUnit(owner, front, card) {
     if (owner === 'player') {
       playerHand.push(card);
       writeLog(`🇨🇭 İsviçre "Taktiksel Çekilme": Kart yok olmak yerine güçleri yarıya inerek eline döndü!`, 'player');
+      renderHand();
     } else {
       aiHand.push(card);
       writeLog(`🇨🇭 Düşman İsviçre'si taktiksel çekilme yaptı ve ele geri döndü.`, 'ai');
     }
 
-    const slot = document.getElementById(`${owner}-slot-${front}`);
-    const rect = slot.getBoundingClientRect();
-    spawnFloatingDmg(rect.left + rect.width / 2, rect.top + rect.height / 2, `ÇEKİLME`, false, true);
-    spawnClashParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 'gold');
+    const pos = slotScreenPos(owner, front);
+    spawnFloatingDmg(pos.x, pos.y, `ÇEKİLME`, false, true);
+    Scene3D.sparkleAt(owner, front, 0xffd24a);
 
     board[owner][front] = null;
     return;
   }
 
   board[owner][front] = null;
+  if (exploded) destroyedHint[`${owner}-${front}`] = true;
 
-  // Japonya: Kamikaze (imha olunca karşı tarafa 15 HP)
+  // Japonya: Kamikaze
   if (card.id === 'japan') {
-    const slot = document.getElementById(`${owner}-slot-${front}`);
-    const rect = slot.getBoundingClientRect();
-    spawnClashParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 'red');
+    Scene3D.explodeAtSlot(owner, front, 0xff3333);
     sfx('explosion');
     triggerScreenShake();
 
@@ -1407,7 +1301,7 @@ function destroyUnit(owner, front, card) {
     updateHpDisplay();
   }
 
-  // Zelenskiy: Direniş Ruhu (birim kaybedince +HP)
+  // Zelenskiy: Direniş Ruhu
   const ownerLeader = owner === 'player' ? playerLeader : aiLeader;
   if (ownerLeader && ownerLeader.abilityType === 'hp_on_unit_lost' && isLeaderActive(owner)) {
     if (owner === 'player') {
@@ -1424,47 +1318,49 @@ function destroyUnit(owner, front, card) {
 }
 
 // ==========================================================================
-// Battle Phase
+// Battle Phase (3D koreografi)
 // ==========================================================================
 async function startBattlePhase() {
   gameState = 'battle';
   btnBattle.disabled = true;
   btnBattle.querySelector('.btn-text').innerText = 'ÇATIŞMA SÜRÜYOR...';
   playerFrontWinsThisBattle = 0;
+  revealedFronts.clear();
 
   sfx('battle');
-  clearTacticTargets();
+  Scene3D.setTacticTargets(null);
+  Scene3D.setDeployMode(false);
+  Scene3D.setEmptyWarnings([]);
   selectedTacticIdx = null;
   renderTactics();
 
   aiPlayTurn();
-  renderBoard();
+  await refreshBoard();
 
   writeLog("Savaş cepheleri çözümleniyor...", 'system');
-  await delay(900);
+  await delay(800);
 
-  aiUseTactics();
+  await aiUseTactics();
   applyLandDebuffs();
   applyNukes();
 
-  renderBoard();
-  await delay(700);
+  await refreshBoard();
+  await delay(600);
 
   const fronts = ['land', 'air', 'sea'];
 
   for (let front of fronts) {
-    const playerSlot = document.getElementById(`player-slot-${front}`);
-    const aiSlot = document.getElementById(`ai-slot-${front}`);
-
-    playerSlot.classList.add(`combat-flash-${front}`);
-    aiSlot.classList.add(`combat-flash-${front}`);
-
     let frontNameTR = front === 'land' ? 'KARA' : front === 'air' ? 'HAVA' : 'DENİZ';
     writeLog(`${frontNameTR} cephesi çatışmaya giriyor...`, 'system');
-    await delay(700);
 
-    renderBoardRevealed(front);
-    await delay(500);
+    Scene3D.cameraFocus(front);
+    Scene3D.flashFront(front);
+    await delay(650);
+
+    // Düşman kartını aç (3D flip)
+    revealedFronts.add(front);
+    await refreshBoard();
+    await delay(350);
 
     const playerCard = board.player[front];
     const aiCard = board.ai[front];
@@ -1473,25 +1369,9 @@ async function startBattlePhase() {
       const playerPower = playerCard.currentPower[front];
       const aiPower = aiCard.currentPower[front];
 
-      const pCardEl = playerSlot.querySelector('.card');
-      const aCardEl = aiSlot.querySelector('.card');
-
-      const pRect = pCardEl.getBoundingClientRect();
-      const aRect = aCardEl.getBoundingClientRect();
-      const midX = (pRect.left + aRect.left + pRect.width) / 2;
-      const midY = (pRect.top + aRect.top + pRect.height) / 2;
-
-      pCardEl.classList.add('clash-slide-up');
-      aCardEl.classList.add('clash-slide-down');
-
-      await delay(200);
-
-      spawnClashRing(midX, midY);
-      spawnClashParticles(midX, midY, front === 'land' ? 'red' : 'cyan');
-      triggerScreenShake();
       sfx('clash');
-
-      await delay(300);
+      await Scene3D.clash(front);
+      triggerScreenShake();
 
       if (playerPower > aiPower) {
         const diff = playerPower - aiPower;
@@ -1504,15 +1384,13 @@ async function startBattlePhase() {
 
         const aiHpBarRect = aiHpBar.getBoundingClientRect();
         spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `-${diff} HP`);
-        spawnFloatingDmg(aRect.left + aRect.width / 2, aRect.top + aRect.height / 2, `-${aiPower} GÜÇ`);
+        const aPos = slotScreenPos('ai', front);
+        spawnFloatingDmg(aPos.x, aPos.y, `-${aiPower} GÜÇ`);
 
         playerCard.currentPower[front] = diff;
 
         handleMacronMitigation(diff, 'ai');
-        destroyUnit('ai', front, aiCard);
-
-        aCardEl.classList.add('card-damaged');
-        pCardEl.classList.add('card-damaged');
+        destroyUnit('ai', front, aiCard, true);
 
       } else if (aiPower > playerPower) {
         const diff = aiPower - playerPower;
@@ -1524,51 +1402,38 @@ async function startBattlePhase() {
 
         const playerHpBarRect = playerHpBar.getBoundingClientRect();
         spawnFloatingDmg(playerHpBarRect.left + playerHpBarRect.width / 2, playerHpBarRect.top - 30, `-${diff} HP`);
-        spawnFloatingDmg(pRect.left + pRect.width / 2, pRect.top + pRect.height / 2, `-${playerPower} GÜÇ`);
+        const pPos = slotScreenPos('player', front);
+        spawnFloatingDmg(pPos.x, pPos.y, `-${playerPower} GÜÇ`);
 
         aiCard.currentPower[front] = diff;
 
         handleMacronMitigation(diff, 'player');
-        destroyUnit('player', front, playerCard);
-
-        pCardEl.classList.add('card-damaged');
-        aCardEl.classList.add('card-damaged');
+        destroyUnit('player', front, playerCard, true);
 
       } else {
         writeLog(`${playerCard.flag} ${playerCard.name} ve ${aiCard.flag} ${aiCard.name} karşılıklı olarak birbirini imha etti!`, 'system');
         sfx('explosion');
 
-        spawnFloatingDmg(pRect.left + pRect.width / 2, pRect.top + pRect.height / 2, `-${playerPower} GÜÇ`);
-        spawnFloatingDmg(aRect.left + aRect.width / 2, aRect.top + aRect.height / 2, `-${aiPower} GÜÇ`);
+        const pPos = slotScreenPos('player', front);
+        const aPos = slotScreenPos('ai', front);
+        spawnFloatingDmg(pPos.x, pPos.y, `-${playerPower} GÜÇ`);
+        spawnFloatingDmg(aPos.x, aPos.y, `-${aiPower} GÜÇ`);
 
-        destroyUnit('player', front, playerCard);
-        destroyUnit('ai', front, aiCard);
-
-        pCardEl.classList.add('card-damaged');
-        aCardEl.classList.add('card-damaged');
+        destroyUnit('player', front, playerCard, true);
+        destroyUnit('ai', front, aiCard, true);
       }
 
     } else if (playerCard && !aiCard) {
-      // AI'ya doğrudan hasar
       let damage = playerCard.currentPower[front];
-      const pCardEl = playerSlot.querySelector('.card');
 
-      pCardEl.classList.add('clash-slide-up');
-      await delay(200);
-
-      const aiSlotRect = aiSlot.getBoundingClientRect();
-      spawnClashRing(aiSlotRect.left + aiSlotRect.width / 2, aiSlotRect.top + aiSlotRect.height / 2);
-      spawnClashParticles(aiSlotRect.left + aiSlotRect.width / 2, aiSlotRect.top + aiSlotRect.height / 2, 'red');
-      triggerScreenShake();
       sfx('explosion');
-
-      await delay(300);
+      await Scene3D.missileStrike('player', front);
+      triggerScreenShake();
 
       if (aiLeader && aiLeader.abilityType === 'direct_damage_reduction' && isLeaderActive('ai')) {
         const mitigation = Math.floor(damage * aiLeader.abilityVal);
         damage -= mitigation;
         writeLog(`${aiLeader.flag} ${aiLeader.name} yeteneği: Düşman doğrudan hasarı azalttı!`, 'ai');
-
         const aiHpBarRect = aiHpBar.getBoundingClientRect();
         spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `ENGELLENDİ`, false, true);
       }
@@ -1582,26 +1447,16 @@ async function startBattlePhase() {
       spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `-${damage} HP`);
 
     } else if (!playerCard && aiCard) {
-      // Oyuncuya doğrudan hasar
       let damage = aiCard.currentPower[front];
-      const aCardEl = aiSlot.querySelector('.card');
 
-      aCardEl.classList.add('clash-slide-down');
-      await delay(200);
-
-      const playerSlotRect = playerSlot.getBoundingClientRect();
-      spawnClashRing(playerSlotRect.left + playerSlotRect.width / 2, playerSlotRect.top + playerSlotRect.height / 2);
-      spawnClashParticles(playerSlotRect.left + playerSlotRect.width / 2, playerSlotRect.top + playerSlotRect.height / 2, 'red');
-      triggerScreenShake();
       sfx('explosion');
-
-      await delay(300);
+      await Scene3D.missileStrike('ai', front);
+      triggerScreenShake();
 
       if (playerLeader && playerLeader.abilityType === 'direct_damage_reduction' && isLeaderActive('player')) {
         const mitigation = Math.floor(damage * playerLeader.abilityVal);
         damage -= mitigation;
         writeLog(`${playerLeader.flag} ${playerLeader.name} yeteneği: Doğrudan hasarı azalttın!`, 'player');
-
         const playerHpBarRect = playerHpBar.getBoundingClientRect();
         spawnFloatingDmg(playerHpBarRect.left + playerHpBarRect.width / 2, playerHpBarRect.top - 30, `SAVUNULDU`, false, true);
       }
@@ -1619,62 +1474,20 @@ async function startBattlePhase() {
     }
 
     updateHpDisplay();
-    renderBoardAfterCombat();
+    await refreshBoard();
 
-    await delay(1100);
-
-    playerSlot.classList.remove(`combat-flash-${front}`);
-    aiSlot.classList.remove(`combat-flash-${front}`);
+    await delay(850);
 
     if (playerHP <= 0 || aiHP <= 0) break;
   }
 
-  // Başarım: tek turda 3 cephe zaferi
+  Scene3D.cameraPlay();
+
   if (playerFrontWinsThisBattle >= 3) {
     unlockAchievement('sweep');
   }
 
   resolveRoundEnd();
-}
-
-function renderBoardRevealed(activeFront) {
-  Object.keys(board.ai).forEach(front => {
-    const container = aiSlots[front];
-    const card = board.ai[front];
-    if (card && front === activeFront) {
-      container.innerHTML = '';
-      const cardEl = document.createElement('div');
-      cardEl.className = 'card';
-      cardEl.innerHTML = getCardHTML(card, front);
-      container.appendChild(cardEl);
-    }
-  });
-}
-
-function renderBoardAfterCombat() {
-  Object.keys(board.player).forEach(front => {
-    const container = playerSlots[front];
-    const card = board.player[front];
-    if (!card) {
-      container.innerHTML = getEmptySlotHTML(front);
-    } else {
-      const cardEl = container.querySelector('.card');
-      if (cardEl) cardEl.innerHTML = getCardHTML(card, front);
-    }
-  });
-
-  Object.keys(board.ai).forEach(front => {
-    const container = aiSlots[front];
-    const card = board.ai[front];
-    if (!card) {
-      container.innerHTML = getEmptySlotHTML(front);
-    } else {
-      const cardEl = container.querySelector('.card');
-      if (cardEl && !cardEl.classList.contains('card-back')) {
-        cardEl.innerHTML = getCardHTML(card, front);
-      }
-    }
-  });
 }
 
 // ==========================================================================
@@ -1686,18 +1499,18 @@ async function resolveRoundEnd() {
     return;
   }
 
-  // Gücü sıfırlanan birimler imha olur (nuke/airstrike sonrası)
+  // Gücü sıfırlanan birimler imha olur
   ['land', 'air', 'sea'].forEach(front => {
     const playerCard = board.player[front];
     const aiCard = board.ai[front];
 
     if (playerCard && playerCard.currentPower[front] <= 0) {
       writeLog(`${playerCard.flag} ${playerCard.name} savaşamaz durumda ve dağıldı.`, 'system');
-      destroyUnit('player', front, playerCard);
+      destroyUnit('player', front, playerCard, true);
     }
     if (aiCard && aiCard.currentPower[front] <= 0) {
       writeLog(`Düşman birimi ${aiCard.flag} ${aiCard.name} savaşamaz durumda ve dağıldı.`, 'system');
-      destroyUnit('ai', front, aiCard);
+      destroyUnit('ai', front, aiCard, true);
     }
   });
 
@@ -1706,7 +1519,6 @@ async function resolveRoundEnd() {
     playerHP = Math.min(100, playerHP + playerLeader.abilityVal);
     writeLog(`${playerLeader.flag} ${playerLeader.name} pasifi: Canın **+${playerLeader.abilityVal} HP** yenilendi!`, 'player');
     sfx('heal');
-
     const rect = playerHpBar.getBoundingClientRect();
     spawnFloatingDmg(rect.left + rect.width / 2, rect.top - 30, `+${playerLeader.abilityVal} HP`, true);
   }
@@ -1714,18 +1526,16 @@ async function resolveRoundEnd() {
   if (aiLeader && aiLeader.abilityType === 'heal_round_end' && isLeaderActive('ai')) {
     aiHP = Math.min(aiMaxHP, aiHP + aiLeader.abilityVal);
     writeLog(`${aiLeader.flag} ${aiLeader.name} pasifi: Düşman canı **+${aiLeader.abilityVal} HP** yenilendi!`, 'ai');
-
     const rect = aiHpBar.getBoundingClientRect();
     spawnFloatingDmg(rect.left + rect.width / 2, rect.top + 30, `+${aiLeader.abilityVal} HP`, true);
   }
 
-  // Kampanya perki: Seyyar Hastane
   if (gameMode === 'campaign' && campaignPerks.medicHeal > 0) {
     playerHP = Math.min(100, playerHP + campaignPerks.medicHeal);
     writeLog(`Seyyar Hastane: +${campaignPerks.medicHeal} HP yenilendi.`, 'ability');
   }
 
-  // Bu turluk taktik etkileri (EMP, Keşif) yeni tura geçerken sıfırlanır
+  // Bu turluk taktik etkileri sıfırla
   reconActive = false;
   empActive = false;
 
@@ -1739,7 +1549,6 @@ async function resolveRoundEnd() {
   round++;
   roundCounter.innerText = round;
 
-  // Her 3 turda bir taktik kartı ver (4, 7, 10...)
   if (round > 1 && (round - 1) % 3 === 0) {
     grantTactic('player');
     writeLog(`Genelkurmay yeni bir Taktik Kartı gönderdi!`, 'ability');
@@ -1753,10 +1562,11 @@ async function resolveRoundEnd() {
   gameState = 'planning';
   selectedHandCardIdx = null;
   tacticPlayedThisTurn = false;
+  revealedFronts.clear();
 
   renderHand();
-  renderBoard();
   renderTactics();
+  await refreshBoard();
 
   btnBattle.disabled = false;
   btnBattle.querySelector('.btn-text').innerText = 'SAVAŞI BAŞLAT';
@@ -1768,7 +1578,7 @@ async function resolveRoundEnd() {
 // Game Over & Rewards
 // ==========================================================================
 function calcQuickBattleReward(won) {
-  if (!won) return 5; // teselli madalyası
+  if (!won) return 5;
   switch (difficulty) {
     case 'easy': return 20;
     case 'hard': return 70;
@@ -1781,9 +1591,7 @@ function triggerGameOver() {
 
   const won = playerHP > 0 && aiHP <= 0;
   const lost = playerHP <= 0 && aiHP > 0;
-  const draw = !won && !lost;
 
-  // Kampanyada ara cephe zaferi: game over yerine perk ekranı
   if (gameMode === 'campaign' && won && campaignStage < 5) {
     const stage = CAMPAIGN_STAGES[campaignStage - 1];
     addMedals(stage.reward);
@@ -1797,7 +1605,6 @@ function triggerGameOver() {
     return;
   }
 
-  // İstatistikler
   META.stats.matches++;
   if (won) META.stats.wins++;
   else if (lost) META.stats.losses++;
@@ -1808,14 +1615,12 @@ function triggerGameOver() {
   statHp.innerText = playerHP;
 
   let medalsEarned = 0;
-
   const modal = gameOverOverlay.querySelector('.game-over-modal');
 
   if (won) {
     sfx('victory');
 
     if (gameMode === 'campaign') {
-      // Kampanya tamamlandı (5. cephe)
       const stage = CAMPAIGN_STAGES[campaignStage - 1];
       medalsEarned = stage.reward + 100;
       META.stats.campaignBest = 5;
@@ -1890,6 +1695,8 @@ async function resetMatch(options = {}) {
   const { keepPlayerHP = false, aiTacticCount = null } = options;
 
   gameState = 'dealing';
+  Scene3D.cameraPlay();
+
   if (!keepPlayerHP) playerHP = 100;
   aiHP = aiMaxHP;
   round = 1;
@@ -1899,6 +1706,8 @@ async function resetMatch(options = {}) {
   reconActive = false;
   empActive = false;
   playerFrontWinsThisBattle = 0;
+  revealedFronts.clear();
+  destroyedHint = {};
 
   board.player = { land: null, air: null, sea: null };
   board.ai = { land: null, air: null, sea: null };
@@ -1906,7 +1715,6 @@ async function resetMatch(options = {}) {
   playerHand = [];
   aiHand = [];
 
-  // Taktik kartları: her maç başında 2 (kampanyada perk taktikleri korunur)
   if (gameMode === 'quick' || campaignStage <= 1) {
     playerTactics = [randomTactic(), randomTactic()];
   }
@@ -1928,8 +1736,10 @@ async function resetMatch(options = {}) {
 
   updateHpDisplay();
   renderHand();
-  renderBoard();
   renderTactics();
+  Scene3D.setDeployMode(false);
+  Scene3D.setTacticTargets(null);
+  await refreshBoard();
 
   writeLog(`Savaş başladı! Kartlar dağıtılıyor...`, 'system');
 
@@ -1937,6 +1747,7 @@ async function resetMatch(options = {}) {
 
   gameState = 'planning';
   renderTactics();
+  await refreshBoard();
   btnBattle.disabled = false;
   btnBattle.querySelector('.btn-text').innerText = 'SAVAŞI BAŞLAT';
   writeLog(`Birliklerin hazır. Liderlerin pasifleri devrede. Savunma hatlarını kur!`, 'system');
@@ -1953,7 +1764,6 @@ btnBattle.addEventListener('click', () => {
 btnRestart.addEventListener('click', () => {
   sfx('click');
   if (gameState === 'menu') return;
-  // Aynı modu baştan başlat
   if (gameMode === 'campaign') {
     startCampaign();
   } else {
@@ -1984,7 +1794,10 @@ btnGoMenu.addEventListener('click', () => {
   showMainMenu();
 });
 
-// Ana menü
+document.getElementById('log-toggle').addEventListener('click', () => {
+  logPanel.classList.toggle('collapsed');
+});
+
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     sfx('click');
@@ -2028,5 +1841,13 @@ document.getElementById('btn-back-to-menu').addEventListener('click', () => {
 // ==========================================================================
 window.addEventListener('DOMContentLoaded', () => {
   loadMeta();
+
+  const ok = Scene3D.init(document.getElementById('scene-container'));
+  if (!ok) {
+    document.body.innerHTML = '<div style="display:flex;height:100vh;align-items:center;justify-content:center;text-align:center;padding:20px;font-family:sans-serif;color:#fff;">Tarayıcınız WebGL desteklemiyor. Lütfen güncel bir tarayıcı kullanın.</div>';
+    return;
+  }
+
+  Scene3D.onSlotClick(handleSceneSlotClick);
   showMainMenu();
 });
