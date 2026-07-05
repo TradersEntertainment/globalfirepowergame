@@ -795,6 +795,34 @@ const Scene3D = (() => {
     });
   }
 
+  // Zafer/yenilgi kutlaması: masa merkezinden partikül çeşmesi
+  function celebrationBurst(type = 'victory') {
+    const color = type === 'victory' ? 0xffd24a : type === 'defeat' ? 0xff3344 : 0xff8822;
+    for (let wave = 0; wave < 3; wave++) {
+      setTimeout(() => {
+        const pos = new THREE.Vector3((Math.random() - 0.5) * 10, 0.6, (Math.random() - 0.5) * 6);
+        const geo = new THREE.BufferGeometry();
+        const count = 60;
+        const positions = new Float32Array(count * 3);
+        const velocities = [];
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = pos.x;
+          positions[i * 3 + 1] = pos.y;
+          positions[i * 3 + 2] = pos.z;
+          const ang = Math.random() * Math.PI * 2;
+          const spread = 1.5 + Math.random() * 3.5;
+          velocities.push(new THREE.Vector3(Math.cos(ang) * spread, 9 + Math.random() * 7, Math.sin(ang) * spread));
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({ color, size: 0.26, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+        const points = new THREE.Points(geo, mat);
+        scene.add(points);
+        particleSystems.push({ points, velocities, life: 1.6, decay: 0.7, gravity: 8 });
+        shockRing(pos, color);
+      }, wave * 320);
+    }
+  }
+
   // ---- Kamera ------------------------------------------------------------------
   function cameraMenu() {
     camMode = 'menu';
@@ -950,6 +978,18 @@ const Scene3D = (() => {
       });
     });
 
+    // Sahadaki kartlar hafifçe süzülür (aktif tween yoksa)
+    if (tweens.length === 0) {
+      ['player', 'ai'].forEach(owner => {
+        ['land', 'air', 'sea'].forEach(front => {
+          const cm = cardMeshes[owner][front];
+          if (cm) {
+            cm.userData.inner.position.y = Math.sin(t * 1.4 + FRONT_X[front] + OWNER_Z[owner]) * 0.09;
+          }
+        });
+      });
+    }
+
     // Kamera
     if (camMode === 'menu') {
       const ang = t * 0.12;
@@ -1030,6 +1070,7 @@ const Scene3D = (() => {
     missileStrike,
     nukeStrike,
     explodeAtSlot,
+    celebrationBurst,
     sparkleAt,
     flashFront,
     ringPulse,

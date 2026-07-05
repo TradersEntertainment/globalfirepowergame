@@ -229,6 +229,18 @@ function spawnClashParticles(x, y, colorType = 'cyan') {
   }
 }
 
+// Savaş başlangıcı damgası
+function showBattleStinger() {
+  const stinger = document.getElementById('battle-stinger');
+  stinger.classList.remove('hidden');
+  // Animasyonu yeniden tetiklemek için node'u tazele
+  const span = stinger.querySelector('span');
+  span.style.animation = 'none';
+  span.getBoundingClientRect();
+  span.style.animation = '';
+  setTimeout(() => stinger.classList.add('hidden'), 1150);
+}
+
 // ==========================================================================
 // Achievement Toasts
 // ==========================================================================
@@ -1328,6 +1340,7 @@ async function startBattlePhase() {
   revealedFronts.clear();
 
   sfx('battle');
+  showBattleStinger();
   Scene3D.setTacticTargets(null);
   Scene3D.setDeployMode(false);
   Scene3D.setEmptyWarnings([]);
@@ -1596,6 +1609,7 @@ function triggerGameOver() {
     const stage = CAMPAIGN_STAGES[campaignStage - 1];
     addMedals(stage.reward);
     sfx('victory');
+    Scene3D.celebrationBurst('victory');
 
     META.stats.campaignBest = Math.max(META.stats.campaignBest, campaignStage);
     saveMeta();
@@ -1619,6 +1633,7 @@ function triggerGameOver() {
 
   if (won) {
     sfx('victory');
+    Scene3D.celebrationBurst('victory');
 
     if (gameMode === 'campaign') {
       const stage = CAMPAIGN_STAGES[campaignStage - 1];
@@ -1648,6 +1663,7 @@ function triggerGameOver() {
 
   } else if (lost) {
     sfx('defeat');
+    Scene3D.celebrationBurst('defeat');
 
     if (gameMode === 'campaign') {
       medalsEarned = (campaignStage - 1) * 15 + 5;
