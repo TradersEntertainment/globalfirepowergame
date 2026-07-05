@@ -10,6 +10,13 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v3.1 "Savaş Hissiyatı" Güncellemesi
+
+- **Ulusal Marş Ezgileri** 🎺 — Bir ülkeyi cepheye sürdüğünde, o ülkenin marşının ~2 saniyelik açılış ezgisi bando sesiyle çalar (trampet girişi + bakır nefesliler + tuba desteği). 16 ülkenin ezgisi nota nota WebAudio ile sentezlenir (Türkiye, ABD, Rusya, Çin, Fransa, Japonya, İsrail, Ukrayna...); kalanlar 3 farklı askeri boru fanfarından birini çalar. **Ses dosyası yok, telif riski yok** — melodiler kamu malı bestelerin kısa yaklaşık açılışlarıdır.
+- **Savaş Ambiyansı** — Maç boyunca alçak cephe uğultusu ve rastgele uzak top atışları; savaş fazında yoğunluk artar. Düşman konuşlanırken karanlık savaş borusu çalar.
+- **Canlı Fetih Küresi** 🌍 — Sahaya sürülen her ülke, arka plandaki dönen Dünya hologramında kendi başkent koordinatında ışık sütunuyla işaretlenir (oyuncu camgöbeği / düşman turuncu). Birim düşünce işaret söner — küresel savaşın gidişatı kürede canlı izlenir.
+- **Konuşlanma Etkisi** — Kart inişinde toz halkası + yer sarsıntısı.
+
 ## v2.0 "Steam Edition" Özellikleri
 
 - **Ana Menü ve Oyun Modları**
@@ -31,12 +38,23 @@ npx serve .
 python3 -m http.server 8080
 ```
 
-## Steam Yol Haritası (öneriler)
+## Steam "Çok Satan" Yol Haritası
 
-1. **Masaüstü paketleme** — Oyun tek sayfalık statik web uygulaması olduğu için [Tauri](https://tauri.app) (küçük boyut) veya Electron ile sarmalanıp Steam'e yüklenebilir.
-2. **Steamworks entegrasyonu** — `unlockAchievement()` çağrıları tek noktadan geçer; Steamworks API'sine köprülemek için `meta.js` içindeki bu fonksiyona `SteamAPI.ActivateAchievement` eklemek yeterli.
-3. **İçerik genişletme** — Daha fazla lider/ülke, günlük görevler, sezonluk liderlik tablosu, çevrimiçi PvP (WebSocket).
-4. ⚠️ **Hukuki not** — Steam sürümünden önce gerçek siyasi liderlerin isim/kimliklerinin kullanımı gözden geçirilmeli (kişilik hakları ve Steam içerik politikaları). Kampanya modundaki kurgusal komutanlar (General Volkov, Amiral Zheng, NEXUS...) bu geçiş için hazır bir şablondur; liderler de benzer şekilde kurgusallaştırılabilir.
+**Paketleme & platform**
+1. **Masaüstü paketleme** — Oyun statik web uygulaması olduğu için [Tauri](https://tauri.app) (küçük boyut) veya Electron ile sarmalanıp Steam'e yüklenebilir.
+2. **Steamworks entegrasyonu** — `unlockAchievement()` tek noktadan geçer; `meta.js` içine `SteamAPI.ActivateAchievement` köprüsü yeterli. Steam Cloud kayıt için `META` objesi zaten tek JSON.
+3. **Steam Trading Cards & rozetler** — Lider portreleri ve ülke kartları hazır görsel malzeme.
+
+**Oynanışı derinleştirecek büyük özellikler (öncelik sırasıyla)**
+4. **Deste kurma (deck-building)** — 30 ülkeden 15'lik kendi desteni kur; madalyayla yeni kart paketleri aç. Koleksiyon dürtüsü = uzun oyun süresi.
+5. **Dünya haritası fetih modu** — Fetih Harekâtı'nı gerçek harita üzerinde bölge bölge ilerleyen bir kampanyaya genişlet (Risk tarzı): kürede işgal ettiğin bölgeler kalıcı boyanır, her bölge farklı modifikatör verir.
+6. **Çevrimiçi PvP** — WebSocket ile 1v1 dereceli mod + sezonluk lig; eşzamanlı planlama fazı bu kural setine mükemmel uyar.
+7. **Ülke özel yetenekleri** — Her ülkeye imza pasifi (İsviçre ve Japonya'daki gibi): Türkiye SİHA sürüsü, ABD uçak gemisi grubu, Rusya "General Kış"...
+8. **Günlük görevler + haftalık meydan okumalar** — "3 hava zaferi kazan" → madalya; geri dönüş döngüsü.
+9. **Replay & paylaşım** — Maç kaydını benzersiz link ile paylaşma (viral büyüme).
+10. **Lokalizasyon** — İngilizce başta olmak üzere çok dil; metinler tek dosyada toplanmalı.
+
+**Hukuki not** ⚠️ — Steam sürümünden önce gerçek siyasi liderlerin isim/kimliklerinin kullanımı gözden geçirilmeli. Kampanyadaki kurgusal komutanlar (General Volkov, Amiral Zheng, NEXUS...) bu geçiş için hazır şablondur. Marş ezgileri kamu malı bestelerin kısa sentezlenmiş açılışlarıdır; ses kaydı kullanılmaz.
 
 ## Dosya Yapısı
 

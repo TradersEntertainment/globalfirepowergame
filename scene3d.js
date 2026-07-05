@@ -344,10 +344,15 @@ const Scene3D = (() => {
     );
     earthRing.rotation.x = Math.PI / 2.6;
     earthGroup.add(earthRing);
-    earthGroup.position.set(0, 9, -42);
-    scene.add(earthGroup);
-    earthGroup.userData.spin = true;
+    // Eğik eksen (üst grup) + içte dönen küre: kuzey yarımküre kameraya bakar
+    const earthTilt = new THREE.Group();
+    earthTilt.position.set(0, 4.0, -33);
+    earthTilt.rotation.x = 0.62;
+    earthGroup.rotation.y = -2.1; // Avrasya bölgesi kameraya dönük başlasın
+    earthTilt.add(earthGroup);
+    scene.add(earthTilt);
     transientEnv.earth = earthGroup;
+    transientEnv.earthRadius = 10;
 
     // Süzülen toz partikülleri
     const dustGeo = new THREE.BufferGeometry();
@@ -476,6 +481,10 @@ const Scene3D = (() => {
       }
     });
     group.position.copy(targetPos);
+
+    // İniş etkisi: toz halkası + hafif yer sarsıntısı
+    ringPulse(FRONT_X[front], OWNER_Z[owner], 0xffffff, 2.2);
+    addShake(0.14);
   }
 
   async function animateDissolve(group, destroyed) {
@@ -534,6 +543,7 @@ const Scene3D = (() => {
 
         if (!target && existing) {
           cardMeshes[owner][front] = null;
+          removeGlobeMarker(owner, front);
           jobs.push(animateDissolve(existing, view.destroyedHint && view.destroyedHint[`${owner}-${front}`]));
           return;
         }
@@ -541,6 +551,7 @@ const Scene3D = (() => {
         if (target && !existing) {
           const group = createCardMesh(target.card, target.highlight, target.hidden);
           cardMeshes[owner][front] = group;
+          addGlobeMarker(owner, front, target.card);
           jobs.push(animateDeploy(group, owner, front));
           return;
         }
@@ -549,9 +560,11 @@ const Scene3D = (() => {
           // Farklı kart mı?
           if (existing.userData.instanceId !== target.card.instanceId) {
             cardMeshes[owner][front] = null;
+            removeGlobeMarker(owner, front);
             jobs.push(animateDissolve(existing, false).then(() => {
               const group = createCardMesh(target.card, target.highlight, target.hidden);
               cardMeshes[owner][front] = group;
+              addGlobeMarker(owner, front, target.card);
               return animateDeploy(group, owner, front);
             }));
             return;
@@ -793,6 +806,112 @@ const Scene3D = (() => {
     ['player', 'ai'].forEach(owner => {
       ringPulse(FRONT_X[front], OWNER_Z[owner], FRONT_COLORS[front], 3.2);
     });
+  }
+
+  // ---- Dünya Küresi İşaretleyicileri -----------------------------------------
+  // Sahaya sürülen her ülke, hologram kürede başkent koordinatında ışıldar.
+  const globeMarkers = { player: {}, ai: {} };
+  const OWNER_MARKER_COLORS = { player: 0x00e5ff, ai: 0xff7b33 };
+
+  function latLonToVec3(lat, lon, r) {
+    const phi = (90 - lat) * Math.PI / 180;
+    const theta = (lon + 180) * Math.PI / 180;
+    return new THREE.Vector3(
+      -r * Math.sin(phi) * Math.cos(theta),
+      r * Math.cos(phi),
+      r * Math.sin(phi) * Math.sin(theta)
+    );
+  }
+
+  let markerHaloTexture = null;
+  function getMarkerHaloTexture() {
+    if (markerHaloTexture) return markerHaloTexture;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const g = cv.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    markerHaloTexture = new THREE.CanvasTexture(cv);
+    return markerHaloTexture;
+  }
+
+  function addGlobeMarker(owner, front, card) {
+    if (typeof card.lat !== 'number' || !transientEnv.earth) return;
+    removeGlobeMarker(owner, front, true);
+
+    const color = OWNER_MARKER_COLORS[owner];
+    const r = transientEnv.earthRadius;
+    const surface = latLonToVec3(card.lat, card.lon, r);
+    const dir = surface.clone().normalize();
+
+    const group = new THREE.Group();
+
+    const dot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 12, 10),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+    );
+    dot.position.copy(surface);
+    group.add(dot);
+
+    // Kamera-yönlü ışık halesi: her açıdan görünür
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: getMarkerHaloTexture(),
+      color,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    }));
+    halo.position.copy(dir.clone().multiplyScalar(r + 0.25));
+    halo.scale.setScalar(2.4);
+    group.add(halo);
+
+    // Işık sütunu (kürenin dışına doğru)
+    const pillarH = 3.2;
+    const pillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.18, pillarH, 8, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    );
+    pillar.position.copy(dir.clone().multiplyScalar(r + pillarH / 2));
+    pillar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    group.add(pillar);
+
+    transientEnv.earth.add(group);
+    globeMarkers[owner][front] = group;
+
+    // Doğuş animasyonu
+    group.scale.setScalar(0.01);
+    tween({
+      dur: 450,
+      ease: 'outBack',
+      onUpdate: t => group.scale.setScalar(Math.max(0.01, t))
+    });
+  }
+
+  function removeGlobeMarker(owner, front, instant = false) {
+    const marker = globeMarkers[owner][front];
+    if (!marker) return;
+    globeMarkers[owner][front] = null;
+
+    const cleanup = () => {
+      if (transientEnv.earth) transientEnv.earth.remove(marker);
+      disposeGroup(marker);
+    };
+
+    if (instant) {
+      cleanup();
+    } else {
+      tween({
+        dur: 350,
+        ease: 'inCubic',
+        onUpdate: t => marker.scale.setScalar(Math.max(0.01, 1 - t)),
+        onComplete: cleanup
+      });
+    }
   }
 
   // Zafer/yenilgi kutlaması: masa merkezinden partikül çeşmesi

@@ -423,6 +423,7 @@ function showMainMenu() {
   gameState = 'menu';
   campaignStage = 0;
   refreshMenuStats();
+  AudioEngine.stopAmbient();
   Scene3D.cameraMenu();
   mainMenuOverlay.classList.remove('hidden');
   leaderSelectionOverlay.classList.add('hidden');
@@ -451,6 +452,7 @@ function toggleSound() {
   META.muted = !META.muted;
   saveMeta();
   updateSoundButtons();
+  AudioEngine.refreshAmbient(gameState === 'planning' || gameState === 'battle' || gameState === 'dealing');
   if (!META.muted) sfx('click');
 }
 
@@ -1052,6 +1054,7 @@ function handleSceneSlotClick(owner, front) {
     }
 
     sfx('deploy');
+    anthem(selectedCard.id); // Ulusal marş: ülke cepheye sürülüyor!
     board.player[front] = selectedCard;
     applyDeployModifiers(selectedCard, front, 'player');
 
@@ -1347,7 +1350,10 @@ async function startBattlePhase() {
   selectedTacticIdx = null;
   renderTactics();
 
+  AudioEngine.setAmbientIntensity(2);
+
   aiPlayTurn();
+  sfx('enemyHorn'); // Düşman birlikleri konuşlanıyor
   await refreshBoard();
 
   writeLog("Savaş cepheleri çözümleniyor...", 'system');
@@ -1576,6 +1582,7 @@ async function resolveRoundEnd() {
   selectedHandCardIdx = null;
   tacticPlayedThisTurn = false;
   revealedFronts.clear();
+  AudioEngine.setAmbientIntensity(1);
 
   renderHand();
   renderTactics();
@@ -1712,6 +1719,8 @@ async function resetMatch(options = {}) {
 
   gameState = 'dealing';
   Scene3D.cameraPlay();
+  AudioEngine.startAmbient();
+  AudioEngine.setAmbientIntensity(1);
 
   if (!keepPlayerHP) playerHP = 100;
   aiHP = aiMaxHP;
