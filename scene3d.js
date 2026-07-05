@@ -38,7 +38,7 @@ const Scene3D = (() => {
 
   // Platform vurgu durumları
   const platformFlags = {
-    deployHighlight: false,
+    deploySide: null,    // 'player' | 'ai' | null
     tacticTargets: null, // {side, fronts:[]}
     emptyWarnings: []    // [{owner, front}]
   };
@@ -84,6 +84,86 @@ const Scene3D = (() => {
     ctx.closePath();
   }
 
+  // ---- Dünya Haritası Dokusu ---------------------------------------------------
+  // worldmap.js içindeki Natural Earth kıta poligonlarını equirectangular çizer.
+  function buildEarthTexture() {
+    const W = 2048, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    // Okyanus
+    const ocean = ctx.createLinearGradient(0, 0, 0, H);
+    ocean.addColorStop(0, '#04111e');
+    ocean.addColorStop(0.5, '#062033');
+    ocean.addColorStop(1, '#04111e');
+    ctx.fillStyle = ocean;
+    ctx.fillRect(0, 0, W, H);
+
+    // Enlem/boylam ızgarası
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.07)';
+    ctx.lineWidth = 1;
+    for (let lon = -150; lon <= 180; lon += 30) {
+      const x = (lon + 180) / 360 * W;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = (90 - lat) / 180 * H;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    if (typeof WORLD_LAND !== 'undefined') {
+      const proj = (lon, lat) => [(lon + 180) / 360 * W, (90 - lat) / 180 * H];
+
+      const tracePolys = () => {
+        ctx.beginPath();
+        for (const ring of WORLD_LAND) {
+          const [x0, y0] = proj(ring[0][0], ring[0][1]);
+          ctx.moveTo(x0, y0);
+          for (let i = 1; i < ring.length; i++) {
+            const [x, y] = proj(ring[i][0], ring[i][1]);
+            ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+        }
+      };
+
+      // Kara dolgusu
+      tracePolys();
+      ctx.fillStyle = 'rgba(18, 84, 105, 0.85)';
+      ctx.fill();
+
+      // Kıyı çizgisi (neon ışıma)
+      tracePolys();
+      ctx.shadowColor = 'rgba(0, 229, 255, 0.9)';
+      ctx.shadowBlur = 7;
+      ctx.strokeStyle = 'rgba(60, 220, 255, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    const tex = new THREE.CanvasTexture(cv);
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  // ---- Bayrak Önbelleği -----------------------------------------------------
+  // flags/*.svg dosyalarını Image olarak yükler; kart dokularında çizilir.
+  const FlagCache = {};
+  function preloadFlags() {
+    const sources = [];
+    if (typeof COUNTRIES_DB !== 'undefined') sources.push(...COUNTRIES_DB);
+    if (typeof LEADERS_DB !== 'undefined') sources.push(...LEADERS_DB);
+    sources.forEach(entry => {
+      if (entry.iso && !FlagCache[entry.iso]) {
+        const img = new Image();
+        img.src = `flags/${entry.iso}.svg`;
+        FlagCache[entry.iso] = img;
+      }
+    });
+  }
+
   // ---- Kart Dokuları ---------------------------------------------------------
   function drawCardFace(card, highlightFront) {
     const W = 512, H = 660;
@@ -100,9 +180,14 @@ const Scene3D = (() => {
     ctx.fillStyle = bg;
     ctx.fill();
 
-    // Kenarlık
+    // Hasar durumu (temel güçten düşükse)
+    const anyDamaged = ['land', 'air', 'sea'].some(k =>
+      typeof card[k] === 'number' && card.currentPower[k] < card[k]
+    );
+
+    // Kenarlık (hasarlıysa kızıl)
     ctx.lineWidth = 8;
-    ctx.strokeStyle = highlightFront ? '#39d5ff' : 'rgba(120, 160, 210, 0.55)';
+    ctx.strokeStyle = anyDamaged ? 'rgba(255, 96, 80, 0.9)' : (highlightFront ? '#39d5ff' : 'rgba(120, 160, 210, 0.55)');
     ctx.stroke();
 
     // İç ışıltı çizgisi
@@ -111,10 +196,23 @@ const Scene3D = (() => {
     ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
     ctx.stroke();
 
-    // Bayrak + isim
+    // Bayrak (SVG yüklüyse gerçek bayrak, değilse emoji)
     ctx.textBaseline = 'middle';
-    ctx.font = '86px "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-    ctx.fillText(card.flag, 34, 92);
+    const flagImg = card.iso ? FlagCache[card.iso] : null;
+    if (flagImg && flagImg.complete && flagImg.naturalWidth > 0) {
+      ctx.save();
+      roundRectPath(ctx, 34, 44, 100, 75, 10);
+      ctx.clip();
+      ctx.drawImage(flagImg, 34, 44, 100, 75);
+      ctx.restore();
+      roundRectPath(ctx, 34, 44, 100, 75, 10);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.stroke();
+    } else {
+      ctx.font = '86px "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+      ctx.fillText(card.flag, 34, 92);
+    }
 
     ctx.fillStyle = '#f2f6fc';
     ctx.font = '800 52px Outfit, sans-serif';
@@ -123,10 +221,16 @@ const Scene3D = (() => {
     if (name !== card.name) name += '…';
     ctx.fillText(name, 148, 76);
 
-    // Rank rozeti
+    // Rank rozeti + hasar uyarısı
     ctx.font = '700 30px "JetBrains Mono", monospace';
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.fillText(`GFP SIRALAMA #${card.rank}`, 148, 122);
+    if (anyDamaged) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ff6655';
+      ctx.fillText('⚠ HASARLI', W - 44, 122);
+      ctx.textAlign = 'left';
+    }
 
     // İstatistik satırları
     const rows = [
@@ -167,10 +271,17 @@ const Scene3D = (() => {
       ctx.fillStyle = row.color;
       ctx.fill();
 
+      const base = card[row.key];
+      const rowDamaged = typeof base === 'number' && val < base;
       ctx.font = '800 64px "JetBrains Mono", monospace';
       ctx.textAlign = 'right';
-      ctx.fillStyle = val === 0 ? '#ff4455' : (hl ? row.color : '#f2f6fc');
+      ctx.fillStyle = (val === 0 || rowDamaged) ? '#ff5566' : (hl ? row.color : '#f2f6fc');
       ctx.fillText(String(val), W - 56, y + 56);
+      if (rowDamaged) {
+        ctx.font = '700 30px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ff5566';
+        ctx.fillText('▼' + (base - val), W - 56, y + 94);
+      }
       ctx.textAlign = 'left';
 
       y += 128;
@@ -326,16 +437,16 @@ const Scene3D = (() => {
     const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x9fd8ff, size: 0.5, transparent: true, opacity: 0.8, sizeAttenuation: true }));
     scene.add(stars);
 
-    // Dünya hologramı (arka merkez)
+    // Dünya hologramı (arka merkez) — gerçek kıta haritası dokusuyla
     const earthGroup = new THREE.Group();
     const earthWire = new THREE.Mesh(
-      new THREE.SphereGeometry(10, 28, 20),
-      new THREE.MeshBasicMaterial({ color: 0x00d2ff, wireframe: true, transparent: true, opacity: 0.09 })
+      new THREE.SphereGeometry(10.05, 28, 20),
+      new THREE.MeshBasicMaterial({ color: 0x00d2ff, wireframe: true, transparent: true, opacity: 0.04 })
     );
     earthGroup.add(earthWire);
     const earthCore = new THREE.Mesh(
-      new THREE.SphereGeometry(9.7, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0x043346, transparent: true, opacity: 0.28 })
+      new THREE.SphereGeometry(9.95, 48, 32),
+      new THREE.MeshBasicMaterial({ map: buildEarthTexture(), transparent: true, opacity: 0.96 })
     );
     earthGroup.add(earthCore);
     const earthRing = new THREE.Mesh(
@@ -371,6 +482,8 @@ const Scene3D = (() => {
 
   const transientEnv = {};
 
+  const HEX_TINTS = { land: 0x15230e, air: 0x0a2029, sea: 0x0e1633 };
+
   function buildPlatforms() {
     ['player', 'ai'].forEach(owner => {
       ['land', 'air', 'sea'].forEach(front => {
@@ -380,7 +493,7 @@ const Scene3D = (() => {
         const hex = new THREE.Mesh(
           new THREE.CylinderGeometry(2.85, 3.05, 0.42, 6),
           new THREE.MeshStandardMaterial({
-            color: 0x111a2c,
+            color: HEX_TINTS[front],
             metalness: 0.6,
             roughness: 0.4,
             emissive: color,
@@ -389,6 +502,44 @@ const Scene3D = (() => {
         );
         hex.rotation.y = Math.PI / 6;
         group.add(hex);
+
+        // ---- Cephe tema dekorları: her cephe tek bakışta ayırt edilsin ----
+        const anims = [];
+        if (front === 'land') {
+          // Alçak poligonlu dağ silsilesi
+          const mtnMat = new THREE.MeshStandardMaterial({ color: 0x3c5c2a, roughness: 0.95, flatShading: true });
+          [[-2.0, -1.2, 0.8], [-1.25, -1.8, 1.15], [1.55, -1.6, 0.95], [2.1, -0.95, 0.65]].forEach(([x, z, h]) => {
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(h * 0.55, h, 5), mtnMat);
+            cone.position.set(x, 0.21 + h / 2, z);
+            cone.rotation.y = Math.random() * Math.PI;
+            group.add(cone);
+          });
+        } else if (front === 'air') {
+          // Jiroskop radar halkaları (dönen)
+          const gyroMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+          const g1 = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.028, 6, 48), gyroMat);
+          g1.rotation.x = 1.15;
+          g1.position.y = 0.5;
+          group.add(g1);
+          const g2 = new THREE.Mesh(new THREE.TorusGeometry(1.95, 0.028, 6, 48), gyroMat.clone());
+          g2.rotation.x = -0.95;
+          g2.rotation.z = 0.6;
+          g2.position.y = 0.5;
+          group.add(g2);
+          anims.push({ type: 'gyro', mesh: g1, speed: 0.8 });
+          anims.push({ type: 'gyro', mesh: g2, speed: -1.1 });
+        } else {
+          // Dalgalanan su yüzeyi
+          const waterGeo = new THREE.CircleGeometry(2.45, 26);
+          const water = new THREE.Mesh(
+            waterGeo,
+            new THREE.MeshBasicMaterial({ color: 0x2450d8, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+          );
+          water.rotation.x = -Math.PI / 2;
+          water.position.y = 0.24;
+          group.add(water);
+          anims.push({ type: 'water', geo: waterGeo, base: waterGeo.attributes.position.array.slice() });
+        }
 
         const ring = new THREE.Mesh(
           new THREE.TorusGeometry(2.85, 0.075, 10, 64),
@@ -412,11 +563,11 @@ const Scene3D = (() => {
 
         hex.userData.slot = { owner, front };
 
-        platforms[owner][front] = { group, hex, ring, innerRing, baseColor: color };
+        platforms[owner][front] = { group, hex, ring, innerRing, baseColor: color, anims };
       });
     });
 
-    // Zemin cephe etiketleri (orta hat üstünde)
+    // Zemin cephe etiketleri (orta hat üstünde) + sütun renk şeritleri
     ['land', 'air', 'sea'].forEach(front => {
       const tex = makeFloorLabelTexture(FRONT_LABELS[front], FRONT_COLORS[front]);
       const label = new THREE.Mesh(
@@ -426,6 +577,14 @@ const Scene3D = (() => {
       label.rotation.x = -Math.PI / 2;
       label.position.set(FRONT_X[front], 0.05, 0);
       scene.add(label);
+
+      const stripe = new THREE.Mesh(
+        new THREE.PlaneGeometry(6.0, 16.5),
+        new THREE.MeshBasicMaterial({ color: FRONT_COLORS[front], transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.set(FRONT_X[front], 0.012, 0);
+      scene.add(stripe);
     });
   }
 
@@ -960,8 +1119,11 @@ const Scene3D = (() => {
   }
 
   // ---- Vurgu/Etkileşim ------------------------------------------------------------
-  function setDeployMode(active) {
-    platformFlags.deployHighlight = active;
+  // side: 'player' | 'ai' | null (true → 'player' uyumluluk için)
+  function setDeployMode(side) {
+    if (side === true) side = 'player';
+    if (side === false) side = null;
+    platformFlags.deploySide = side;
   }
 
   function setTacticTargets(side, fronts) {
@@ -1055,11 +1217,26 @@ const Scene3D = (() => {
       transientEnv.dust.rotation.y += dt * 0.015;
     }
 
-    // Platform durum ışıkları
+    // Platform durum ışıkları + tema dekor animasyonları
     ['player', 'ai'].forEach(owner => {
       ['land', 'air', 'sea'].forEach(front => {
         const p = platforms[owner][front];
         p.innerRing.rotation.z += dt * 0.6;
+
+        if (p.anims) {
+          p.anims.forEach(a => {
+            if (a.type === 'gyro') {
+              a.mesh.rotation.y += dt * a.speed;
+            } else if (a.type === 'water') {
+              const pos = a.geo.attributes.position;
+              for (let vi = 0; vi < pos.count; vi++) {
+                const bx = a.base[vi * 3], by = a.base[vi * 3 + 1];
+                pos.array[vi * 3 + 2] = Math.sin(t * 2.2 + bx * 2.0 + by * 1.6) * 0.08;
+              }
+              pos.needsUpdate = true;
+            }
+          });
+        }
 
         let ringColor = p.baseColor;
         let ringOpacity = 0.5;
@@ -1067,7 +1244,7 @@ const Scene3D = (() => {
 
         const tt = platformFlags.tacticTargets;
         const isTacticTarget = tt && tt.side === owner && tt.fronts.includes(front) && cardMeshes[owner][front];
-        const isDeployTarget = platformFlags.deployHighlight && owner === 'player';
+        const isDeployTarget = platformFlags.deploySide === owner;
         const isEmptyWarn = platformFlags.emptyWarnings.some(w => w.owner === owner && w.front === front);
         const isHover = hoverSlot && hoverSlot.owner === owner && hoverSlot.front === front;
 
@@ -1176,6 +1353,7 @@ const Scene3D = (() => {
       if (slot && slotClickCb) slotClickCb(slot.owner, slot.front);
     });
 
+    preloadFlags();
     ready = true;
     requestAnimationFrame(animate);
     return true;

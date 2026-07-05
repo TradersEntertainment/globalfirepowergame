@@ -76,7 +76,7 @@
         <div class="hud-plate player-plate">
           <div class="avatar player-avatar"><i class="fa-solid fa-user-shield"></i></div>
           <div class="plate-info">
-            <h2>Komutan (Sen)</h2>
+            <h2 id="player-name">Komutan (Sen)</h2>
             <div id="player-leader-display" class="leader-badge"><span>Seçilmedi</span></div>
           </div>
           <div class="hp-block">
@@ -154,6 +154,14 @@
           </div>
           <button id="btn-mode-campaign" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-flag"></i> HAREKÂTI BAŞLAT</button>
         </div>
+
+        <!-- Duel (Hot-seat 2P) -->
+        <div class="mode-card mode-duel">
+          <div class="mode-icon"><i class="fa-solid fa-user-group"></i></div>
+          <h2>DÜELLO <span class="mode-tag">2 OYUNCU</span></h2>
+          <p>Aynı ekranda arkadaşına karşı! Sırayla plan yapın, cihazı devredin, cepheler aynı anda çözülsün. Kazanan +15 madalya alır.</p>
+          <button id="btn-mode-duel" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-handshake-angle"></i> DÜELLOYU BAŞLAT</button>
+        </div>
       </div>
 
       <div class="menu-rules">
@@ -181,7 +189,7 @@
   <!-- Leader Selection Screen Overlay -->
   <div id="leader-selection-overlay" class="overlay hidden">
     <div class="leader-modal">
-      <h1>LİDERİNİ SEÇ</h1>
+      <h1 id="leader-select-title">LİDERİNİ SEÇ</h1>
       <p class="leader-sub">Liderinin özel yeteneği tüm savaş boyunca birliklerini destekleyecek. Kilitli liderler madalya ile açılır.</p>
       <div id="leaders-grid" class="leaders-grid"></div>
       <button id="btn-back-to-menu" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-arrow-left"></i> Menüye Dön</button>
@@ -230,11 +238,30 @@
     </div>
   </div>
 
+  <!-- Duel Handoff Overlay (cihaz devri) -->
+  <div id="handoff-overlay" class="overlay hidden">
+    <div class="handoff-modal">
+      <i class="fa-solid fa-right-left handoff-icon"></i>
+      <h1 id="handoff-title">SIRA: KOMUTAN 2</h1>
+      <p id="handoff-sub">Cihazı diğer komutana ver. Rakip planını görmesin!</p>
+      <button id="btn-handoff-ready" class="btn btn-primary btn-glow"><i class="fa-solid fa-play"></i> HAZIRIM</button>
+    </div>
+  </div>
+
+  <!-- Kart İşlem Menüsü (geri al / imha et) -->
+  <div id="card-action-popup" class="card-action-popup hidden">
+    <div class="cap-title"><i class="fa-solid fa-triangle-exclamation"></i> Birlik hasarlı!</div>
+    <button id="cap-take" class="btn btn-secondary"><i class="fa-solid fa-hand"></i> Ele Al</button>
+    <button id="cap-scrap" class="btn btn-danger"><i class="fa-solid fa-trash"></i> İmha Et</button>
+    <button id="cap-cancel" class="btn btn-secondary btn-cap-cancel"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
   <!-- Achievement Toast Container -->
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Scripts -->
   <script src="vendor/three.min.js"></script>
+  <script src="worldmap.js"></script>
   <script src="countries.js"></script>
   <script src="leaders.js"></script>
   <script src="tactics.js"></script>

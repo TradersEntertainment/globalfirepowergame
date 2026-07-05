@@ -3,6 +3,7 @@
 const LEADERS_DB = [
   {
     id: "trump",
+    iso: "us",
     name: "Donald Trump",
     flag: "🇺🇸",
     title: "America First",
@@ -14,6 +15,7 @@ const LEADERS_DB = [
   },
   {
     id: "putin",
+    iso: "ru",
     name: "Vladimir Putin",
     flag: "🇷🇺",
     title: "Sibirya Ayısı",
@@ -25,6 +27,7 @@ const LEADERS_DB = [
   },
   {
     id: "erdogan",
+    iso: "tr",
     name: "R. Tayyip Erdoğan",
     flag: "🇹🇷",
     title: "SİHA Doktrini",
@@ -36,6 +39,7 @@ const LEADERS_DB = [
   },
   {
     id: "jinping",
+    iso: "cn",
     name: "Xi Jinping",
     flag: "🇨🇳",
     title: "İpek Yolu Lojistiği",
@@ -47,6 +51,7 @@ const LEADERS_DB = [
   },
   {
     id: "kim",
+    iso: "kp",
     name: "Kim Jong Un",
     flag: "🇰🇵",
     title: "Nükleer Tehdit",
@@ -58,6 +63,7 @@ const LEADERS_DB = [
   },
   {
     id: "macron",
+    iso: "fr",
     name: "Emmanuel Macron",
     flag: "🇫🇷",
     title: "Diplomasi Koalisyonu",
@@ -69,6 +75,7 @@ const LEADERS_DB = [
   },
   {
     id: "zelensky",
+    iso: "ua",
     name: "V. Zelenskiy",
     flag: "🇺🇦",
     title: "Direniş Ruhu",
@@ -80,6 +87,7 @@ const LEADERS_DB = [
   },
   {
     id: "modi",
+    iso: "in",
     name: "Narendra Modi",
     flag: "🇮🇳",
     title: "İnsan Gücü Seferberliği",

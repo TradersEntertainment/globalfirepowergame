@@ -14,8 +14,14 @@ let aiHand = [];
 let round = 1;
 let gameState = 'menu'; // 'menu', 'leader_selection', 'dealing', 'planning', 'battle', 'gameover'
 
-let gameMode = 'quick';       // 'quick' | 'campaign'
+let gameMode = 'quick';       // 'quick' | 'campaign' | 'duel'
 let difficulty = 'normal';    // 'easy' | 'normal' | 'hard'
+
+// Düello (aynı ekranda 2 oyuncu) durumu
+let currentPlanner = 'player'; // 'player' (Komutan 1) | 'ai' (Komutan 2)
+let duelPickStage = 0;         // lider seçiminde hangi komutan seçiyor
+let handoffCb = null;
+let pendingActionFront = null; // kart işlem menüsünün hedeflediği cephe
 
 // Leaders State
 let playerLeader = null;
@@ -184,6 +190,26 @@ function getHandLimit(owner) {
   return 5;
 }
 
+// Şu an plan yapan taraf (düelloda sırayla, diğer modlarda hep oyuncu)
+function getPlannerSide() {
+  return gameMode === 'duel' ? currentPlanner : 'player';
+}
+
+function getPlannerHand() {
+  return getPlannerSide() === 'ai' ? aiHand : playerHand;
+}
+
+function isCardDamaged(card) {
+  return ['land', 'air', 'sea'].some(f =>
+    typeof card[f] === 'number' && card.currentPower[f] < card[f]
+  );
+}
+
+function flagHTML(entry, cls = 'card-flag-img') {
+  if (entry.iso) return `<img class="${cls}" src="flags/${entry.iso}.svg" alt="">`;
+  return `<span class="card-flag">${entry.flag}</span>`;
+}
+
 function isLeaderActive(owner) {
   if (owner === 'ai' && empActive) return false;
   return true;
@@ -263,7 +289,17 @@ function showAchievementToast(def) {
 // ==========================================================================
 // 3D Board Senkronizasyonu
 // ==========================================================================
-function isAiCardHidden(front) {
+function isCardHiddenFor(owner, front) {
+  // Düello: plan yapmayan tarafın kartları gizli; devir sırasında ikisi de gizli
+  if (gameMode === 'duel') {
+    if (gameState === 'battle') return !revealedFronts.has(front);
+    if (gameState === 'handoff') return true;
+    if (gameState === 'planning' || gameState === 'dealing') return owner !== currentPlanner;
+    return false; // oyun sonu: hepsi açık
+  }
+
+  // PvE: oyuncu kartları hep açık, AI kartları keşif yoksa gizli
+  if (owner === 'player') return false;
   if (reconActive) return false;
   if (gameState === 'planning' || gameState === 'dealing') return true;
   if (gameState === 'battle') return !revealedFronts.has(front);
@@ -273,11 +309,10 @@ function isAiCardHidden(front) {
 function buildBoardView() {
   const view = { player: {}, ai: {}, destroyedHint };
   ['land', 'air', 'sea'].forEach(front => {
-    const pCard = board.player[front];
-    view.player[front] = pCard ? { card: pCard, hidden: false, highlight: front } : null;
-
-    const aCard = board.ai[front];
-    view.ai[front] = aCard ? { card: aCard, hidden: isAiCardHidden(front), highlight: front } : null;
+    ['player', 'ai'].forEach(owner => {
+      const card = board[owner][front];
+      view[owner][front] = card ? { card, hidden: isCardHiddenFor(owner, front), highlight: front } : null;
+    });
   });
   return view;
 }
@@ -287,11 +322,12 @@ async function refreshBoard() {
   const syncPromise = Scene3D.syncBoard(view);
   destroyedHint = {};
 
-  // Boş cephe uyarıları (planlama sırasında oyuncu tarafı)
+  // Boş cephe uyarıları (planlama sırasında plan yapan taraf)
   const warnings = [];
   if (gameState === 'planning') {
+    const side = getPlannerSide();
     ['land', 'air', 'sea'].forEach(front => {
-      if (!board.player[front]) warnings.push({ owner: 'player', front });
+      if (!board[side][front]) warnings.push({ owner: side, front });
     });
   }
   Scene3D.setEmptyWarnings(warnings);
@@ -435,11 +471,43 @@ function showMainMenu() {
 
 function openLeaderSelection() {
   gameState = 'leader_selection';
+  duelPickStage = 0;
+  document.getElementById('leader-select-title').innerText =
+    gameMode === 'duel' ? '1. KOMUTAN LİDERİNİ SEÇ' : 'LİDERİNİ SEÇ';
   mainMenuOverlay.classList.add('hidden');
   gameOverOverlay.classList.add('hidden');
   renderLeaderSelection();
   leaderSelectionOverlay.classList.remove('hidden');
 }
+
+// ---- Düello (aynı ekranda 2 oyuncu) ----
+function startDuel() {
+  gameMode = 'duel';
+  duelPickStage = 0;
+  openLeaderSelection();
+}
+
+function showHandoff(title, sub, cb) {
+  gameState = 'handoff';
+  handoffCb = cb;
+  selectedHandCardIdx = null;
+  hideCardActionPopup();
+  Scene3D.setDeployMode(null);
+  renderHand();      // el gizlenir
+  refreshBoard();    // iki taraf da kapanır
+
+  document.getElementById('handoff-title').innerText = title;
+  document.getElementById('handoff-sub').innerText = sub;
+  document.getElementById('handoff-overlay').classList.remove('hidden');
+}
+
+document.getElementById('btn-handoff-ready').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('handoff-overlay').classList.add('hidden');
+  const cb = handoffCb;
+  handoffCb = null;
+  if (cb) cb();
+});
 
 function updateSoundButtons() {
   const iconClass = META.muted ? 'fa-volume-xmark' : 'fa-volume-high';
@@ -494,7 +562,7 @@ function renderLeaderSelection() {
         </div>
       ` : ''}
       <div class="leader-profile">
-        <div class="leader-avatar-img">${leader.flag}</div>
+        <div class="leader-avatar-img">${leader.iso ? `<img class="leader-flag-img" src="flags/${leader.iso}.svg" alt="">` : leader.flag}</div>
         <div class="leader-name-group">
           <span class="leader-card-name">${leader.name}</span>
           <span class="leader-card-title">${leader.title}</span>
@@ -569,8 +637,29 @@ btnConfirmBuy.addEventListener('click', () => {
 });
 
 function selectPlayerLeader(leader) {
+  // Düello: iki komutan sırayla lider seçer
+  if (gameMode === 'duel') {
+    if (duelPickStage === 0) {
+      playerLeader = leader;
+      duelPickStage = 1;
+      document.getElementById('leader-select-title').innerText = '2. KOMUTAN LİDERİNİ SEÇ';
+      renderLeaderSelection();
+      return;
+    }
+    aiLeader = leader;
+    leaderSelectionOverlay.classList.add('hidden');
+    aiNameEl.innerText = 'Komutan 2';
+    document.getElementById('player-name').innerText = 'Komutan 1';
+    aiMaxHP = 100;
+    updateLeaderDisplays();
+    writeLog(`Düello başlıyor: ${playerLeader.name} vs ${aiLeader.name}!`, 'ability');
+    resetMatch();
+    return;
+  }
+
   playerLeader = leader;
   leaderSelectionOverlay.classList.add('hidden');
+  document.getElementById('player-name').innerText = 'Komutan (Sen)';
 
   if (gameMode === 'campaign') {
     startCampaignStage(1);
@@ -590,15 +679,17 @@ function selectPlayerLeader(leader) {
 }
 
 function updateLeaderDisplays() {
+  const flagOf = l => l.iso ? `<img class="inline-flag" src="flags/${l.iso}.svg" alt="">` : l.flag;
+
   playerLeaderDisplay.innerHTML = `
-    <span>${playerLeader.flag} ${playerLeader.name}</span>
+    <span>${flagOf(playerLeader)} ${playerLeader.name}</span>
     <span class="sub-title" title="${playerLeader.desc}">
       <i class="fa-solid fa-bolt"></i> ${playerLeader.title}
     </span>
   `;
 
   aiLeaderDisplay.innerHTML = `
-    <span>${aiLeader.flag} ${aiLeader.name}</span>
+    <span>${flagOf(aiLeader)} ${aiLeader.name}</span>
     <span class="sub-title" title="${aiLeader.desc}">
       <i class="fa-solid fa-bolt"></i> ${aiLeader.title}
     </span>
@@ -921,28 +1012,37 @@ async function aiUseTactics() {
 // ==========================================================================
 function getCardHTML(card) {
   const isLandlocked = card.sea === 0;
+  const damaged = isCardDamaged(card);
+
+  // En güçlü stat yanıp söner
+  const p = card.currentPower;
+  const maxVal = Math.max(p.land, p.air, p.sea);
+
+  const row = (key, icon, label) => {
+    const val = p[key];
+    const isBest = val === maxVal && maxVal > 0;
+    const isDmg = typeof card[key] === 'number' && val < card[key];
+    return `
+      <div class="stat-row ${isBest ? 'best-stat' : ''}">
+        <span><i class="fa-solid ${icon}"></i> ${label}</span>
+        <span class="stat-val ${isDmg ? 'dmg' : ''} ${key === 'sea' && isLandlocked ? 'text-danger' : ''}">${val}${isDmg ? '▼' : ''}</span>
+      </div>
+    `;
+  };
 
   return `
+    ${damaged ? '<span class="dmg-badge">HASARLI</span>' : ''}
     <div class="card-header">
       <div class="card-title-group">
-        <span class="card-flag">${card.flag}</span>
+        ${flagHTML(card)}
         <span class="card-name" title="${card.name}">${card.name}</span>
       </div>
       <span class="card-rank">#${card.rank}</span>
     </div>
     <div class="card-stats">
-      <div class="stat-row">
-        <span><i class="fa-solid fa-trowel-bricks"></i> Kara</span>
-        <span class="stat-val">${card.currentPower.land}</span>
-      </div>
-      <div class="stat-row">
-        <span><i class="fa-solid fa-jet-fighter"></i> Hava</span>
-        <span class="stat-val">${card.currentPower.air}</span>
-      </div>
-      <div class="stat-row">
-        <span><i class="fa-solid fa-ship"></i> Deniz</span>
-        <span class="stat-val ${isLandlocked ? 'text-danger' : ''}">${card.currentPower.sea}</span>
-      </div>
+      ${row('land', 'fa-trowel-bricks', 'Kara')}
+      ${row('air', 'fa-jet-fighter', 'Hava')}
+      ${row('sea', 'fa-ship', 'Deniz')}
     </div>
     <div class="sub-title" title="${card.desc}">${card.desc}</div>
   `;
@@ -950,9 +1050,15 @@ function getCardHTML(card) {
 
 function renderHand() {
   playerHandEl.innerHTML = '';
-  playerHand.forEach((card, idx) => {
+
+  // Devir teslim sırasında el gizli
+  if (gameState === 'handoff') return;
+
+  const hand = getPlannerHand();
+  hand.forEach((card, idx) => {
     const cardEl = document.createElement('div');
     cardEl.className = 'card';
+    if (isCardDamaged(card)) cardEl.classList.add('damaged');
     if (selectedHandCardIdx === idx) {
       cardEl.classList.add('selected');
     }
@@ -961,6 +1067,7 @@ function renderHand() {
     cardEl.addEventListener('click', () => {
       if (gameState !== 'planning') return;
       sfx('click');
+      hideCardActionPopup();
 
       selectedTacticIdx = null;
       Scene3D.setTacticTargets(null);
@@ -968,7 +1075,7 @@ function renderHand() {
 
       selectedHandCardIdx = selectedHandCardIdx === idx ? null : idx;
       renderHand();
-      Scene3D.setDeployMode(selectedHandCardIdx !== null);
+      Scene3D.setDeployMode(selectedHandCardIdx !== null ? getPlannerSide() : null);
     });
 
     playerHandEl.appendChild(cardEl);
@@ -1026,9 +1133,13 @@ function removeDeployModifiers(card, front, owner) {
 // ==========================================================================
 function handleSceneSlotClick(owner, front) {
   if (gameState !== 'planning') return;
+  hideCardActionPopup();
 
-  // Hedefli taktik oynanıyor mu?
-  if (selectedTacticIdx !== null && playerTactics[selectedTacticIdx]) {
+  const side = getPlannerSide();
+  const hand = getPlannerHand();
+
+  // Hedefli taktik oynanıyor mu? (düelloda taktikler kapalı)
+  if (gameMode !== 'duel' && selectedTacticIdx !== null && playerTactics[selectedTacticIdx]) {
     const tactic = playerTactics[selectedTacticIdx];
     if (tactic.target === 'ally' && owner === 'player' && board.player[front]) {
       playTargetedTactic(selectedTacticIdx, 'player', front);
@@ -1041,44 +1152,101 @@ function handleSceneSlotClick(owner, front) {
     return;
   }
 
-  if (owner !== 'player') return;
+  if (owner !== side) return;
 
   // Elde seçili kart varsa → konuşlandır
   if (selectedHandCardIdx !== null) {
-    const selectedCard = playerHand[selectedHandCardIdx];
+    const selectedCard = hand[selectedHandCardIdx];
 
-    const existing = board.player[front];
+    const existing = board[side][front];
     if (existing) {
-      removeDeployModifiers(existing, front, 'player');
-      playerHand.push(existing);
+      removeDeployModifiers(existing, front, side);
+      hand.push(existing);
     }
 
     sfx('deploy');
     anthem(selectedCard.id); // Ulusal marş: ülke cepheye sürülüyor!
-    board.player[front] = selectedCard;
-    applyDeployModifiers(selectedCard, front, 'player');
+    board[side][front] = selectedCard;
+    applyDeployModifiers(selectedCard, front, side);
 
-    playerHand.splice(selectedHandCardIdx, 1);
+    hand.splice(selectedHandCardIdx, 1);
     selectedHandCardIdx = null;
 
     renderHand();
-    Scene3D.setDeployMode(false);
+    Scene3D.setDeployMode(null);
     refreshBoard();
     return;
   }
 
-  // Kart seçili değilse → sahadaki kartı geri al
-  if (board.player[front]) {
-    sfx('pickup');
-    const card = board.player[front];
-    removeDeployModifiers(card, front, 'player');
-    playerHand.push(card);
-    board.player[front] = null;
-
-    renderHand();
-    refreshBoard();
+  // Kart seçili değilse → sahadaki kartı geri al (hasarlıysa önce sor)
+  const boardCard = board[side][front];
+  if (boardCard) {
+    if (isCardDamaged(boardCard)) {
+      showCardActionPopup(side, front);
+      return;
+    }
+    withdrawCard(side, front);
   }
 }
+
+function withdrawCard(side, front) {
+  const card = board[side][front];
+  if (!card) return;
+  sfx('pickup');
+  removeDeployModifiers(card, front, side);
+  getPlannerHand().push(card);
+  board[side][front] = null;
+
+  renderHand();
+  refreshBoard();
+}
+
+function scrapCard(side, front) {
+  const card = board[side][front];
+  if (!card) return;
+  sfx('explosion');
+  writeLog(`${card.flag} ${card.name} birliği hasar nedeniyle terhis edildi (imha).`, 'system');
+  board[side][front] = null;
+  destroyedHint[`${side}-${front}`] = true;
+
+  refreshBoard();
+}
+
+// ---- Kart İşlem Menüsü (hasarlı birim: ele al / imha et) ----
+const cardActionPopup = document.getElementById('card-action-popup');
+
+function showCardActionPopup(side, front) {
+  pendingActionFront = { side, front };
+  const pos = Scene3D.getScreenPos(side, front, 1.2);
+  cardActionPopup.style.left = `${pos.x}px`;
+  cardActionPopup.style.top = `${pos.y}px`;
+  cardActionPopup.classList.remove('hidden');
+  sfx('click');
+}
+
+function hideCardActionPopup() {
+  pendingActionFront = null;
+  cardActionPopup.classList.add('hidden');
+}
+
+document.getElementById('cap-take').addEventListener('click', () => {
+  if (!pendingActionFront) return;
+  const { side, front } = pendingActionFront;
+  hideCardActionPopup();
+  withdrawCard(side, front);
+});
+
+document.getElementById('cap-scrap').addEventListener('click', () => {
+  if (!pendingActionFront) return;
+  const { side, front } = pendingActionFront;
+  hideCardActionPopup();
+  scrapCard(side, front);
+});
+
+document.getElementById('cap-cancel').addEventListener('click', () => {
+  sfx('click');
+  hideCardActionPopup();
+});
 
 // ==========================================================================
 // HP Display
@@ -1352,14 +1520,16 @@ async function startBattlePhase() {
 
   AudioEngine.setAmbientIntensity(2);
 
-  aiPlayTurn();
-  sfx('enemyHorn'); // Düşman birlikleri konuşlanıyor
+  if (gameMode !== 'duel') {
+    aiPlayTurn();
+    sfx('enemyHorn'); // Düşman birlikleri konuşlanıyor
+  }
   await refreshBoard();
 
   writeLog("Savaş cepheleri çözümleniyor...", 'system');
   await delay(800);
 
-  await aiUseTactics();
+  if (gameMode !== 'duel') await aiUseTactics();
   applyLandDebuffs();
   applyNukes();
 
@@ -1502,7 +1672,7 @@ async function startBattlePhase() {
 
   Scene3D.cameraPlay();
 
-  if (playerFrontWinsThisBattle >= 3) {
+  if (playerFrontWinsThisBattle >= 3 && gameMode !== 'duel') {
     unlockAchievement('sweep');
   }
 
@@ -1567,6 +1737,30 @@ async function resolveRoundEnd() {
 
   round++;
   roundCounter.innerText = round;
+  AudioEngine.setAmbientIntensity(1);
+
+  // Düello: yeni tur → cihaz Komutan 1'e, kart çekimi onun ekranında yapılır
+  if (gameMode === 'duel') {
+    selectedHandCardIdx = null;
+    revealedFronts.clear();
+    currentPlanner = 'player';
+    writeLog("Yeni tura geçildi.", 'system');
+
+    showHandoff('SIRA: KOMUTAN 1', "Cihazı Komutan 1'e ver. Yeni tur kartları çekilecek.", async () => {
+      gameState = 'dealing';
+      writeLog("Desteden kartlar çekiliyor...", 'system');
+      await fillHandsAnimated();
+
+      gameState = 'planning';
+      renderHand();
+      await refreshBoard();
+
+      btnBattle.disabled = false;
+      btnBattle.querySelector('.btn-text').innerText = 'HAZIR → SIRAYI DEVRET';
+      writeLog("Komutan 1 planlıyor...", 'player');
+    });
+    return;
+  }
 
   if (round > 1 && (round - 1) % 3 === 0) {
     grantTactic('player');
@@ -1582,7 +1776,6 @@ async function resolveRoundEnd() {
   selectedHandCardIdx = null;
   tacticPlayedThisTurn = false;
   revealedFronts.clear();
-  AudioEngine.setAmbientIntensity(1);
 
   renderHand();
   renderTactics();
@@ -1611,6 +1804,42 @@ function triggerGameOver() {
 
   const won = playerHP > 0 && aiHP <= 0;
   const lost = playerHP <= 0 && aiHP > 0;
+
+  // Düello sonucu: kazanan komutan ilan edilir, hesaba +15 madalya
+  if (gameMode === 'duel') {
+    statRounds.innerText = round;
+    statHp.innerText = playerHP;
+    const modal = gameOverOverlay.querySelector('.game-over-modal');
+
+    if (won) {
+      sfx('victory');
+      Scene3D.celebrationBurst('victory');
+      modal.className = 'game-over-modal victory';
+      gameOverTitle.innerText = 'KOMUTAN 1 KAZANDI!';
+      gameOverMsg.innerText = `${playerLeader.name} liderliğindeki mavi ordu, kırmızı orduyu ezdi. Rövanş?`;
+      gameOverIcon.className = 'fa-solid fa-trophy trophy-icon';
+    } else if (lost) {
+      sfx('victory');
+      Scene3D.celebrationBurst('victory');
+      modal.className = 'game-over-modal victory';
+      gameOverTitle.innerText = 'KOMUTAN 2 KAZANDI!';
+      gameOverMsg.innerText = `${aiLeader.name} liderliğindeki kırmızı ordu sahayı süpürdü. Rövanş?`;
+      gameOverIcon.className = 'fa-solid fa-trophy trophy-icon';
+    } else {
+      sfx('defeat');
+      modal.className = 'game-over-modal';
+      gameOverTitle.innerText = 'KARŞILIKLI İMHA!';
+      gameOverMsg.innerText = 'İki komutan da aynı anda düştü. Tarih bu düelloyu berabere yazdı.';
+      gameOverIcon.className = 'fa-solid fa-radiation trophy-icon';
+    }
+
+    addMedals(15);
+    sfx('medal');
+    statMedalsEarned.innerText = 15;
+    btnPlayAgain.innerHTML = '<i class="fa-solid fa-handshake-angle"></i> Rövanş';
+    gameOverOverlay.classList.remove('hidden');
+    return;
+  }
 
   if (gameMode === 'campaign' && won && campaignStage < 5) {
     const stage = CAMPAIGN_STAGES[campaignStage - 1];
@@ -1740,19 +1969,31 @@ async function resetMatch(options = {}) {
   playerHand = [];
   aiHand = [];
 
-  if (gameMode === 'quick' || campaignStage <= 1) {
-    playerTactics = [randomTactic(), randomTactic()];
+  currentPlanner = 'player';
+
+  // Taktikler: düelloda v1'de kapalı (adil ve basit tutmak için)
+  const tacticsWrapper = document.querySelector('.tactics-wrapper');
+  if (gameMode === 'duel') {
+    playerTactics = [];
+    aiTactics = [];
+    tacticsWrapper.style.display = 'none';
+  } else {
+    tacticsWrapper.style.display = '';
+    if (gameMode === 'quick' || campaignStage <= 1) {
+      playerTactics = [randomTactic(), randomTactic()];
+    }
+    aiTactics = [];
+    const aiTacticStart = aiTacticCount !== null ? aiTacticCount : (difficulty === 'hard' ? 2 : difficulty === 'normal' ? 1 : 0);
+    for (let i = 0; i < aiTacticStart; i++) grantTactic('ai');
   }
-  aiTactics = [];
-  const aiTacticStart = aiTacticCount !== null ? aiTacticCount : (difficulty === 'hard' ? 2 : difficulty === 'normal' ? 1 : 0);
-  for (let i = 0; i < aiTacticStart; i++) grantTactic('ai');
 
   roundCounter.innerText = round;
   btnBattle.disabled = true;
   btnBattle.querySelector('.btn-text').innerText = 'DAĞITILIYOR...';
 
   gameOverOverlay.classList.add('hidden');
-  if (gameMode === 'quick') {
+  hideCardActionPopup();
+  if (gameMode === 'quick' || gameMode === 'duel') {
     combatLog.innerHTML = '';
     campaignIndicator.classList.add('hidden');
   }
@@ -1774,8 +2015,11 @@ async function resetMatch(options = {}) {
   renderTactics();
   await refreshBoard();
   btnBattle.disabled = false;
-  btnBattle.querySelector('.btn-text').innerText = 'SAVAŞI BAŞLAT';
-  writeLog(`Birliklerin hazır. Liderlerin pasifleri devrede. Savunma hatlarını kur!`, 'system');
+  btnBattle.querySelector('.btn-text').innerText =
+    gameMode === 'duel' ? 'HAZIR → SIRAYI DEVRET' : 'SAVAŞI BAŞLAT';
+  writeLog(gameMode === 'duel'
+    ? `Komutan 1 planlıyor. Hazır olunca sırayı devret!`
+    : `Birliklerin hazır. Liderlerin pasifleri devrede. Savunma hatlarını kur!`, 'system');
 }
 
 // ==========================================================================
@@ -1783,14 +2027,32 @@ async function resetMatch(options = {}) {
 // ==========================================================================
 btnBattle.addEventListener('click', () => {
   if (gameState !== 'planning') return;
+
+  // Düello: önce Komutan 1 planlar, cihaz devredilir, sonra Komutan 2, sonra savaş
+  if (gameMode === 'duel' && currentPlanner === 'player') {
+    sfx('click');
+    currentPlanner = 'ai';
+    showHandoff('SIRA: KOMUTAN 2', "Cihazı Komutan 2'ye ver. Rakip planını görmesin!", () => {
+      gameState = 'planning';
+      renderHand();
+      refreshBoard();
+      btnBattle.querySelector('.btn-text').innerText = 'SAVAŞI BAŞLAT';
+      writeLog('Komutan 2 planlıyor...', 'ai');
+    });
+    return;
+  }
+
   startBattlePhase();
 });
 
 btnRestart.addEventListener('click', () => {
   sfx('click');
   if (gameState === 'menu') return;
+  document.getElementById('handoff-overlay').classList.add('hidden');
   if (gameMode === 'campaign') {
     startCampaign();
+  } else if (gameMode === 'duel') {
+    startDuel();
   } else {
     openLeaderSelection();
   }
@@ -1809,6 +2071,8 @@ btnPlayAgain.addEventListener('click', () => {
   gameOverOverlay.classList.add('hidden');
   if (gameMode === 'campaign') {
     startCampaign();
+  } else if (gameMode === 'duel') {
+    startDuel();
   } else {
     openLeaderSelection();
   }
@@ -1843,6 +2107,11 @@ document.getElementById('btn-mode-quick').addEventListener('click', () => {
 document.getElementById('btn-mode-campaign').addEventListener('click', () => {
   sfx('click');
   startCampaign();
+});
+
+document.getElementById('btn-mode-duel').addEventListener('click', () => {
+  sfx('click');
+  startDuel();
 });
 
 document.getElementById('btn-menu-achievements').addEventListener('click', () => {

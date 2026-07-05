@@ -543,6 +543,33 @@ body {
 
 .card-flag { font-size: 1rem; }
 
+.card-flag-img {
+  width: 22px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.leader-flag-img {
+  width: 34px;
+  height: 25px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.inline-flag {
+  width: 18px;
+  height: 13px;
+  border-radius: 2px;
+  object-fit: cover;
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
 .card-name {
   font-size: 0.78rem;
   font-weight: 600;
@@ -582,6 +609,47 @@ body {
 .stat-val {
   font-family: var(--font-family-mono);
   font-weight: 700;
+}
+
+/* En güçlü stat: yanıp sönen vurgu */
+.stat-row.best-stat {
+  background: hsla(195, 100%, 50%, 0.14);
+  border: 1px solid hsla(195, 100%, 50%, 0.35);
+  animation: bestStatPulse 1.1s ease-in-out infinite alternate;
+}
+
+.stat-row.best-stat .stat-val {
+  color: var(--color-accent);
+  text-shadow: 0 0 8px hsla(195, 100%, 50%, 0.7);
+}
+
+@keyframes bestStatPulse {
+  from { background: hsla(195, 100%, 50%, 0.08); box-shadow: 0 0 3px hsla(195, 100%, 50%, 0.15); }
+  to { background: hsla(195, 100%, 50%, 0.24); box-shadow: 0 0 10px hsla(195, 100%, 50%, 0.45); }
+}
+
+/* Hasarlı stat ve kart */
+.stat-val.dmg {
+  color: var(--color-danger) !important;
+  text-shadow: 0 0 6px hsla(0, 85%, 55%, 0.6);
+}
+
+.card.damaged {
+  border-color: hsla(0, 85%, 60%, 0.65);
+}
+
+.dmg-badge {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  box-shadow: 0 0 8px hsla(0, 85%, 55%, 0.6);
 }
 
 .card .sub-title {
@@ -1367,6 +1435,105 @@ body {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Düello: Cihaz Devri Ekranı + Kart İşlem Menüsü
+   ========================================================================== */
+.handoff-modal {
+  background: hsla(222, 30%, 8%, 0.95);
+  border: 2px solid var(--color-warning);
+  border-radius: 20px;
+  padding: 44px 56px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 30px hsla(28, 100%, 55%, 0.25);
+  animation: modalScale 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.handoff-icon {
+  font-size: 3rem;
+  color: var(--color-warning);
+  filter: drop-shadow(0 0 10px hsla(28, 100%, 55%, 0.6));
+  animation: pulseGold 1.6s infinite alternate;
+}
+
+.handoff-modal h1 {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--color-warning);
+}
+
+.handoff-modal p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.mode-tag {
+  font-size: 0.6rem;
+  background: var(--color-warning);
+  color: hsl(222, 25%, 7%);
+  padding: 2px 8px;
+  border-radius: 8px;
+  vertical-align: middle;
+  letter-spacing: 1px;
+}
+
+.mode-duel:hover {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 15px hsla(28, 100%, 55%, 0.35);
+}
+
+.mode-duel .mode-icon {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  background: radial-gradient(circle, hsla(28, 100%, 55%, 0.15) 0%, transparent 70%);
+}
+
+/* Kart işlem menüsü (hasarlı birimi geri al / imha et) */
+.card-action-popup {
+  position: fixed;
+  z-index: 950;
+  transform: translate(-50%, -50%);
+  background: hsla(222, 30%, 9%, 0.96);
+  border: 1px solid hsla(0, 85%, 60%, 0.5);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 18px hsla(0, 85%, 55%, 0.25);
+  backdrop-filter: blur(10px);
+  animation: modalScale 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card-action-popup.hidden { display: none; }
+
+.cap-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-danger);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.card-action-popup .btn { padding: 8px 12px; font-size: 0.72rem; }
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: hsl(0, 85%, 48%);
+  transform: translateY(-2px);
+  box-shadow: 0 0 12px hsla(0, 85%, 55%, 0.5);
+}
+
+.btn-cap-cancel { padding: 8px 10px !important; }
 
 /* ==========================================================================
    Başarım Toastları
