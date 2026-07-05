@@ -29,6 +29,7 @@ const Scene3D = (() => {
 
   let slotClickCb = null;
   let hoverSlot = null;
+  let externalTicker = null; // gerçek zamanlı savaş simülasyonu her karede çağrılır
 
   // Kamera hedef durumu
   const camTarget = { pos: new THREE.Vector3(0, 26, 26), look: new THREE.Vector3(0, 0, 0) };
@@ -1257,6 +1258,11 @@ const Scene3D = (() => {
       }
     }
 
+    // Gerçek zamanlı savaş sim adımı
+    if (externalTicker) {
+      try { externalTicker(dt, t); } catch (e) { console.error('battle tick:', e); }
+    }
+
     // Ortam animasyonları
     if (transientEnv.earth) {
       transientEnv.earth.rotation.y += dt * 0.12;
@@ -1429,7 +1435,13 @@ const Scene3D = (() => {
     onSlotClick,
     pickSlotAt,
     setExternalHover,
-    getScreenPos
+    getScreenPos,
+    // Gerçek zamanlı savaş motoru API'si
+    getScene: () => scene,
+    setTicker: fn => { externalTicker = fn; },
+    worldExplode: (pos, color, count = 24, size = 0.2, speed = 8) =>
+      explodeAt(new THREE.Vector3(pos.x, pos.y, pos.z), color, count, size, speed),
+    layout: { FRONT_X, OWNER_Z, CARD_Y }
   };
 })();
 

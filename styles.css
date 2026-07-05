@@ -1533,6 +1533,175 @@ body {
 }
 
 /* ==========================================================================
+   Gerçek Zamanlı Savaş Komuta Paneli
+   ========================================================================== */
+.hud.in-battle .hand-dock,
+.hud.in-battle .hud-action,
+.hud.in-battle .tactics-wrapper {
+  display: none !important;
+}
+
+.battle-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  background: hsla(222, 30%, 8%, 0.88);
+  border: 1px solid var(--border-light);
+  border-top: 2px solid var(--color-warning);
+  border-radius: 18px;
+  padding: 12px 20px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.6);
+  animation: modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.battle-hud.hidden { display: none; }
+
+.cp-block { width: 100%; }
+
+.cp-label {
+  font-family: var(--font-family-mono);
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  color: var(--color-premium);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.cp-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  border: 1px solid hsla(45, 100%, 50%, 0.3);
+  overflow: hidden;
+}
+
+.cp-fill {
+  height: 100%;
+  width: 20%;
+  background: linear-gradient(90deg, hsl(45, 95%, 50%), hsl(38, 95%, 58%));
+  box-shadow: 0 0 10px hsla(45, 100%, 55%, 0.6);
+  transition: width 0.25s linear;
+}
+
+.stance-row, .ability-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stance-btn {
+  font-family: var(--font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.stance-btn:hover { border-color: var(--color-accent); color: var(--text-primary); }
+
+.stance-btn.active {
+  border-color: var(--color-warning);
+  background: hsla(28, 100%, 55%, 0.16);
+  color: var(--color-warning);
+  box-shadow: 0 0 14px hsla(28, 100%, 55%, 0.35);
+}
+
+.ability-btn {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 7px 11px;
+  border-radius: 9px;
+  border: 1px solid hsla(280, 70%, 60%, 0.4);
+  background: linear-gradient(135deg, hsla(280, 40%, 22%, 0.85) 0%, hsla(222, 25%, 12%, 0.9) 100%);
+  color: hsl(280, 60%, 82%);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ability-btn:hover:not(.disabled) {
+  transform: translateY(-2px);
+  border-color: hsl(280, 80%, 65%);
+  box-shadow: 0 0 12px hsla(280, 80%, 60%, 0.4);
+}
+
+.ability-btn.armed {
+  border-color: hsl(280, 90%, 70%);
+  box-shadow: 0 0 16px hsla(280, 90%, 65%, 0.65);
+  animation: pulseCard 1s infinite alternate;
+}
+
+.ability-btn.disabled { opacity: 0.35; cursor: not-allowed; }
+
+.ab-cost {
+  background: hsla(45, 95%, 55%, 0.9);
+  color: hsl(222, 30%, 10%);
+  font-family: var(--font-family-mono);
+  font-weight: 800;
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  border-radius: 7px;
+}
+
+/* Muharebe Pankartı */
+.battle-banner {
+  position: fixed;
+  top: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 890;
+  text-align: center;
+  pointer-events: none;
+  animation: bannerIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.battle-banner.hidden { display: none; }
+
+.bb-title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--color-warning);
+  text-shadow: 0 0 26px hsla(28, 100%, 55%, 0.85), 0 0 4px rgba(0, 0, 0, 0.9);
+}
+
+.bb-title.player { color: var(--color-accent); text-shadow: 0 0 26px hsla(195, 100%, 50%, 0.85), 0 0 4px rgba(0,0,0,0.9); }
+.bb-title.ai { color: var(--color-danger); text-shadow: 0 0 26px hsla(0, 85%, 55%, 0.85), 0 0 4px rgba(0,0,0,0.9); }
+
+.bb-sub {
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+@keyframes bannerIn {
+  from { transform: translateX(-50%) scale(1.6); opacity: 0; filter: blur(6px); }
+  to { transform: translateX(-50%) scale(1); opacity: 1; filter: blur(0); }
+}
+
+/* ==========================================================================
    Düello: Cihaz Devri Ekranı + Kart İşlem Menüsü
    ========================================================================== */
 .handoff-modal {

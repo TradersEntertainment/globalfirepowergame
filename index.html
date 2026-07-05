@@ -238,6 +238,33 @@
     </div>
   </div>
 
+  <!-- Gerçek Zamanlı Savaş Komuta Paneli -->
+  <div id="battle-hud" class="battle-hud hidden">
+    <div class="cp-block">
+      <div class="cp-label"><i class="fa-solid fa-star"></i> KOMUTA PUANI: <span id="cp-val">0</span>/10</div>
+      <div class="cp-bar"><div id="cp-fill" class="cp-fill"></div></div>
+    </div>
+    <div class="stance-row">
+      <button class="stance-btn" data-stance="assault" title="Hasar +%42, savunma -%28. Zayıf düşmanı ezmek için."><i class="fa-solid fa-person-military-rifle"></i> TAARRUZ</button>
+      <button class="stance-btn active" data-stance="hold" title="Dengeli duruş."><i class="fa-solid fa-shield-halved"></i> MEVZİ</button>
+      <button class="stance-btn" data-stance="defense" title="Savunma +%48, hasar -%22. Üstün güce karşı dayan."><i class="fa-solid fa-chess-rook"></i> SAVUNMA</button>
+      <button class="stance-btn" data-stance="retreat" title="Birlikleri kurtar: kaçan birlik kart gücünü korur, cepheyi kaybedersin."><i class="fa-solid fa-flag"></i> RİCAT</button>
+    </div>
+    <div class="ability-row">
+      <button class="ability-btn" data-ab="airstrike" data-target="enemy" title="Seçtiğin düşman cephesini bombala."><i class="fa-solid fa-jet-fighter-up"></i> Hava Saldırısı <span class="ab-cost">4</span></button>
+      <button class="ability-btn" data-ab="artillery" data-target="enemy" title="5 saniye boyunca seçilen cepheyi döv."><i class="fa-solid fa-burst"></i> Topçu Barajı <span class="ab-cost">3</span></button>
+      <button class="ability-btn" data-ab="reinforce" title="En zayıf cephene taze birlik."><i class="fa-solid fa-truck-arrow-right"></i> Takviye <span class="ab-cost">5</span></button>
+      <button class="ability-btn" data-ab="smoke" data-target="ally" title="Kendi cepheni sise gizle (6sn)."><i class="fa-solid fa-smog"></i> Sis <span class="ab-cost">2</span></button>
+      <button class="ability-btn" data-ab="ew" title="Düşman ateş hızını 5sn yavaşlat."><i class="fa-solid fa-satellite-dish"></i> E-Harp <span class="ab-cost">3</span></button>
+    </div>
+  </div>
+
+  <!-- Muharebe Pankartı (arazi / olay / momentum duyuruları) -->
+  <div id="battle-banner" class="battle-banner hidden">
+    <div id="bb-title" class="bb-title"></div>
+    <div id="bb-sub" class="bb-sub"></div>
+  </div>
+
   <!-- Duel Handoff Overlay (cihaz devri) -->
   <div id="handoff-overlay" class="overlay hidden">
     <div class="handoff-modal">
@@ -268,6 +295,7 @@
   <script src="meta.js"></script>
   <script src="audio.js"></script>
   <script src="scene3d.js"></script>
+  <script src="battle3d.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1271,6 +1271,20 @@ function removeDeployModifiers(card, front, owner) {
 // 3D Slot Etkileşimi (raycast'ten gelir)
 // ==========================================================================
 function handleSceneSlotClick(owner, front) {
+  // Savaş sırasında: hedefli komuta yeteneği (hava saldırısı / topçu / sis)
+  if (gameState === 'battle' && armedBattleAbility && Battle3D.isActive()) {
+    const ab = Battle3D.ABILITIES[armedBattleAbility];
+    const wantSide = ab.target === 'enemy' ? 'ai' : 'player';
+    if (owner === wantSide) {
+      if (Battle3D.useAbility(armedBattleAbility, front)) {
+        armedBattleAbility = null;
+        Scene3D.setTacticTargets(null);
+        updateBattleHUD();
+      }
+    }
+    return;
+  }
+
   if (gameState !== 'planning') return;
   hideCardActionPopup();
 
@@ -1630,14 +1644,18 @@ async function startBattlePhase() {
   btnBattle.querySelector('.btn-text').innerText = 'ÇATIŞMA SÜRÜYOR...';
   playerFrontWinsThisBattle = 0;
   revealedFronts.clear();
+  pendingBaseDmg.player = 0;
+  pendingBaseDmg.ai = 0;
 
   sfx('battle');
   showBattleStinger();
   Scene3D.setTacticTargets(null);
-  Scene3D.setDeployMode(false);
+  Scene3D.setDeployMode(null);
   Scene3D.setEmptyWarnings([]);
   selectedTacticIdx = null;
+  armedBattleAbility = null;
   renderTactics();
+  hideCardActionPopup();
 
   AudioEngine.setAmbientIntensity(2);
 
@@ -1647,151 +1665,79 @@ async function startBattlePhase() {
   }
   await refreshBoard();
 
-  writeLog("Savaş cepheleri çözümleniyor...", 'system');
-  await delay(800);
+  writeLog("Ordular konuşlanıyor, cepheler aynı anda alevlenecek...", 'system');
+  await delay(700);
 
   if (gameMode !== 'duel') await aiUseTactics();
   applyLandDebuffs();
   applyNukes();
 
+  // Tüm düşman kartları aynı anda açılır (üçlü 3D flip)
+  ['land', 'air', 'sea'].forEach(f => revealedFronts.add(f));
   await refreshBoard();
   await delay(600);
 
-  const fronts = ['land', 'air', 'sea'];
+  // Arazi ve olası muharebe olayı
+  const terrain = Battle3D.pickTerrain();
+  const battleEvent = Battle3D.maybePickEvent();
+  showBattleBanner(`${terrain.icon} ${terrain.name} MUHAREBESİ`, terrain.desc, null);
+  writeLog(`ARAZİ — ${terrain.name}: ${terrain.desc}`, 'ability');
 
-  for (let front of fronts) {
-    let frontNameTR = front === 'land' ? 'KARA' : front === 'air' ? 'HAVA' : 'DENİZ';
-    writeLog(`${frontNameTR} cephesi çatışmaya giriyor...`, 'system');
-
-    Scene3D.cameraFocus(front);
-    Scene3D.flashFront(front);
-    await delay(650);
-
-    // Düşman kartını aç (3D flip)
-    revealedFronts.add(front);
-    await refreshBoard();
-    await delay(350);
-
-    const playerCard = board.player[front];
-    const aiCard = board.ai[front];
-
-    if (playerCard && aiCard) {
-      const playerPower = playerCard.currentPower[front];
-      const aiPower = aiCard.currentPower[front];
-
-      sfx('clash');
-      await Scene3D.clash(front);
-      triggerScreenShake();
-
-      if (playerPower > aiPower) {
-        const diff = playerPower - aiPower;
-        aiHP -= diff;
-        playerFrontWinsThisBattle++;
-
-        writeLog(`${playerCard.flag} ${playerCard.name} (${playerPower}), ${aiCard.flag} ${aiCard.name} (${aiPower}) birliğini yok etti!`, 'player');
-        writeLog(`Düşman doğrudan **${diff} HP** hasar aldı.`, 'damage');
-        sfx('damage');
-
-        const aiHpBarRect = aiHpBar.getBoundingClientRect();
-        spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `-${diff} HP`);
-        const aPos = slotScreenPos('ai', front);
-        spawnFloatingDmg(aPos.x, aPos.y, `-${aiPower} GÜÇ`);
-
-        playerCard.currentPower[front] = diff;
-
-        handleMacronMitigation(diff, 'ai');
-        destroyUnit('ai', front, aiCard, true);
-
-      } else if (aiPower > playerPower) {
-        const diff = aiPower - playerPower;
-        playerHP -= diff;
-
-        writeLog(`${aiCard.flag} ${aiCard.name} (${aiPower}), ${playerCard.flag} ${playerCard.name} (${playerPower}) birliğini yok etti!`, 'ai');
-        writeLog(`Komutan (Sen) doğrudan **${diff} HP** hasar aldın.`, 'damage');
-        sfx('damage');
-
-        const playerHpBarRect = playerHpBar.getBoundingClientRect();
-        spawnFloatingDmg(playerHpBarRect.left + playerHpBarRect.width / 2, playerHpBarRect.top - 30, `-${diff} HP`);
-        const pPos = slotScreenPos('player', front);
-        spawnFloatingDmg(pPos.x, pPos.y, `-${playerPower} GÜÇ`);
-
-        aiCard.currentPower[front] = diff;
-
-        handleMacronMitigation(diff, 'player');
-        destroyUnit('player', front, playerCard, true);
-
-      } else {
-        writeLog(`${playerCard.flag} ${playerCard.name} ve ${aiCard.flag} ${aiCard.name} karşılıklı olarak birbirini imha etti!`, 'system');
-        sfx('explosion');
-
-        const pPos = slotScreenPos('player', front);
-        const aPos = slotScreenPos('ai', front);
-        spawnFloatingDmg(pPos.x, pPos.y, `-${playerPower} GÜÇ`);
-        spawnFloatingDmg(aPos.x, aPos.y, `-${aiPower} GÜÇ`);
-
-        destroyUnit('player', front, playerCard, true);
-        destroyUnit('ai', front, aiCard, true);
-      }
-
-    } else if (playerCard && !aiCard) {
-      let damage = playerCard.currentPower[front];
-
-      sfx('explosion');
-      await Scene3D.missileStrike('player', front);
-      triggerScreenShake();
-
-      if (aiLeader && aiLeader.abilityType === 'direct_damage_reduction' && isLeaderActive('ai')) {
-        const mitigation = Math.floor(damage * aiLeader.abilityVal);
-        damage -= mitigation;
-        writeLog(`${aiLeader.flag} ${aiLeader.name} yeteneği: Düşman doğrudan hasarı azalttı!`, 'ai');
-        const aiHpBarRect = aiHpBar.getBoundingClientRect();
-        spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `ENGELLENDİ`, false, true);
-      }
-
-      aiHP -= damage;
-      playerFrontWinsThisBattle++;
-      writeLog(`Düşman ${frontNameTR} cephesi korumasız! ${playerCard.flag} ${playerCard.name} doğrudan saldırdı!`, 'player');
-      writeLog(`Düşman **${damage} HP** doğrudan hasar aldı!`, 'damage');
-
-      const aiHpBarRect = aiHpBar.getBoundingClientRect();
-      spawnFloatingDmg(aiHpBarRect.left + aiHpBarRect.width / 2, aiHpBarRect.top + 30, `-${damage} HP`);
-
-    } else if (!playerCard && aiCard) {
-      let damage = aiCard.currentPower[front];
-
-      sfx('explosion');
-      await Scene3D.missileStrike('ai', front);
-      triggerScreenShake();
-
-      if (playerLeader && playerLeader.abilityType === 'direct_damage_reduction' && isLeaderActive('player')) {
-        const mitigation = Math.floor(damage * playerLeader.abilityVal);
-        damage -= mitigation;
-        writeLog(`${playerLeader.flag} ${playerLeader.name} yeteneği: Doğrudan hasarı azalttın!`, 'player');
-        const playerHpBarRect = playerHpBar.getBoundingClientRect();
-        spawnFloatingDmg(playerHpBarRect.left + playerHpBarRect.width / 2, playerHpBarRect.top - 30, `SAVUNULDU`, false, true);
-      }
-
-      playerHP -= damage;
-      writeLog(`<i class="fa-solid fa-triangle-exclamation"></i> ${frontNameTR} cephen boştu! ${aiCard.flag} ${aiCard.name} engelsiz saldırdı!`, 'ai');
-      writeLog(`Komutan (Sen) **${damage} HP** ağır hasar aldın!`, 'damage');
-      sfx('damage');
-
-      const playerHpBarRect = playerHpBar.getBoundingClientRect();
-      spawnFloatingDmg(playerHpBarRect.left + playerHpBarRect.width / 2, playerHpBarRect.top - 30, `-${damage} HP`);
-
-    } else {
-      writeLog(`Her iki taraf da ${frontNameTR} cephesine birlik konuşlandırmadı.`, 'system');
+  // Cephe güçleri ve birleşik kuvvet destekleri
+  const powers = {};
+  ['land', 'air', 'sea'].forEach(f => {
+    powers[f] = {
+      player: board.player[f] ? board.player[f].currentPower[f] : 0,
+      ai: board.ai[f] ? board.ai[f].currentPower[f] : 0
+    };
+  });
+  const supports = {
+    player: {
+      air: board.player.air ? board.player.air.currentPower.air : 0,
+      sea: board.player.sea ? board.player.sea.currentPower.sea : 0
+    },
+    ai: {
+      air: board.ai.air ? board.ai.air.currentPower.air : 0,
+      sea: board.ai.sea ? board.ai.sea.currentPower.sea : 0
     }
+  };
 
-    updateHpDisplay();
-    await refreshBoard();
-
-    await delay(850);
-
-    if (playerHP <= 0 || aiHP <= 0) break;
+  // Komuta paneli (düelloda iki ordu da otomatik komutada — seyir modu)
+  const spectate = gameMode === 'duel';
+  hudEl.classList.add('in-battle');
+  if (!spectate) {
+    document.getElementById('battle-hud').classList.remove('hidden');
+    updateBattleHUD();
+    writeLog("KOMUTA SENDE: Duruş değiştir, Komuta Puanı biriktir, yetenekleri doğru anda kullan!", 'player');
   }
 
   Scene3D.cameraPlay();
+  await delay(1100);
+
+  await Battle3D.startBattle({
+    powers, supports, terrain, event: battleEvent,
+    difficulty, spectateBoth: spectate
+  }, {
+    onCP: updateBattleHUD,
+    onLog: writeLog,
+    onBanner: (title, sub, side) => showBattleBanner(title, sub, side),
+    onBaseDamage: (attackerSide, front, amount) => {
+      pendingBaseDmg[attackerSide === 'player' ? 'ai' : 'player'] += amount;
+      applyPendingBaseDamage();
+    },
+    onFrontResolved: (front, result) => handleFrontResolved(front, result)
+  });
+
+  // Panel kapat, sonuçları topla
+  document.getElementById('battle-hud').classList.add('hidden');
+  hudEl.classList.remove('in-battle');
+  armedBattleAbility = null;
+  Scene3D.setTacticTargets(null);
+
+  updateHpDisplay();
+  await refreshBoard();
+  Scene3D.cameraPlay();
+  await delay(600);
 
   if (playerFrontWinsThisBattle >= 3 && gameMode !== 'duel') {
     unlockAchievement('sweep');
@@ -1799,6 +1745,155 @@ async function startBattlePhase() {
 
   resolveRoundEnd();
 }
+
+// ==========================================================================
+// Gerçek Zamanlı Savaş: HUD, pankart ve sonuç işleme
+// ==========================================================================
+let armedBattleAbility = null;
+const pendingBaseDmg = { player: 0, ai: 0 };
+let bannerTimer = null;
+
+function showBattleBanner(title, sub, side) {
+  const el = document.getElementById('battle-banner');
+  const t = document.getElementById('bb-title');
+  t.innerText = title;
+  t.className = 'bb-title' + (side === 'player' ? ' player' : side === 'ai' ? ' ai' : '');
+  document.getElementById('bb-sub').innerText = sub || '';
+  el.classList.remove('hidden');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.add('hidden'), 2600);
+}
+
+function updateBattleHUD() {
+  const st = Battle3D.getState();
+  if (!st) return;
+  document.getElementById('cp-val').innerText = st.cp;
+  document.getElementById('cp-fill').style.width = `${Math.min(100, st.cpFrac * 100)}%`;
+  document.querySelectorAll('.stance-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.stance === st.stance));
+  document.querySelectorAll('.ability-btn').forEach(b => {
+    const ab = Battle3D.ABILITIES[b.dataset.ab];
+    b.classList.toggle('disabled', st.cp < ab.cost);
+    b.classList.toggle('armed', armedBattleAbility === b.dataset.ab);
+  });
+}
+
+// Üsse gelen canlı bombardıman hasarı (Macron azaltımı uygulanır)
+function applyPendingBaseDamage() {
+  ['player', 'ai'].forEach(side => {
+    const whole = Math.floor(pendingBaseDmg[side]);
+    if (whole >= 1) {
+      pendingBaseDmg[side] -= whole;
+      let dmg = whole;
+      const leader = side === 'player' ? playerLeader : aiLeader;
+      if (leader && leader.abilityType === 'direct_damage_reduction' && isLeaderActive(side)) {
+        dmg = Math.max(0, dmg - Math.floor(dmg * leader.abilityVal));
+      }
+      if (side === 'player') playerHP -= dmg; else aiHP -= dmg;
+      updateHpDisplay();
+    }
+  });
+}
+
+// Bir cephe çözüldüğünde: HP hasarı, kart güç güncellemesi / imha
+function handleFrontResolved(front, result) {
+  const frontTR = front === 'land' ? 'KARA' : front === 'air' ? 'HAVA' : 'DENİZ';
+  const pCard = board.player[front];
+  const aCard = board.ai[front];
+
+  const applyWin = (winner) => {
+    const loser = winner === 'player' ? 'ai' : 'player';
+    const winCard = winner === 'player' ? pCard : aCard;
+    const loseCard = winner === 'player' ? aCard : pCard;
+    const winnerRemaining = winner === 'player' ? result.playerRemaining : result.aiRemaining;
+    const loserRemaining = winner === 'player' ? result.aiRemaining : result.playerRemaining;
+
+    if (winner === 'player') playerFrontWinsThisBattle++;
+
+    if (loseCard) {
+      // Kart savaşı kazanıldı → kaybeden komutan HP kaybeder
+      let hpDmg = Math.max(1, winnerRemaining);
+      if (result.loserRetreated) hpDmg = Math.max(1, Math.floor(hpDmg * 0.5)); // ricat canı korur
+      const loserLeader = loser === 'player' ? playerLeader : aiLeader;
+      if (loserLeader && loserLeader.abilityType === 'direct_damage_reduction' && isLeaderActive(loser)) {
+        hpDmg -= Math.floor(hpDmg * loserLeader.abilityVal);
+      }
+      if (loser === 'player') playerHP -= hpDmg; else aiHP -= hpDmg;
+
+      writeLog(`${frontTR} CEPHESİ DÜŞTÜ! ${loser === 'player' ? 'Sen' : 'Düşman'} ${hpDmg} HP kaybetti.`, winner === 'player' ? 'player' : 'ai');
+      const bar = loser === 'player' ? playerHpBar : aiHpBar;
+      const r = bar.getBoundingClientRect();
+      spawnFloatingDmg(r.left + r.width / 2, r.top + (loser === 'player' ? -30 : 30), `-${hpDmg} HP`);
+
+      if (winCard) winCard.currentPower[front] = Math.max(1, winnerRemaining);
+
+      if (result.loserRetreated && loserRemaining > 0) {
+        loseCard.currentPower[front] = Math.max(1, Math.round(loserRemaining * 0.8));
+        writeLog(`${loseCard.flag} ${loseCard.name} ricat etti: birlik kurtarıldı ama yıprandı.`, loser === 'player' ? 'player' : 'ai');
+      } else {
+        destroyUnit(loser, front, loseCard, true);
+      }
+    } else {
+      // Savunmasız cepheye bombardıman zaten canlı HP olarak işlendi
+      writeLog(`${frontTR}: korumasız hat bombalandı (${Math.round(result.baseDamage)} hasar).`, winner === 'player' ? 'player' : 'ai');
+      if (winCard) winCard.currentPower[front] = Math.max(1, winnerRemaining);
+    }
+  };
+
+  if (result.winner === 'player' || result.winner === 'ai') {
+    applyWin(result.winner);
+  } else {
+    // Kazanansız: karşılıklı imha ya da kilitlenme
+    if (pCard && aCard) {
+      if (result.playerRemaining <= 0 && result.aiRemaining <= 0) {
+        writeLog(`${frontTR} cephesinde iki ordu da tükendi!`, 'system');
+        sfx('explosion');
+        destroyUnit('player', front, pCard, true);
+        destroyUnit('ai', front, aCard, true);
+      } else {
+        pCard.currentPower[front] = Math.max(1, result.playerRemaining);
+        aCard.currentPower[front] = Math.max(1, result.aiRemaining);
+        writeLog(`${frontTR} cephesi kilitlendi: iki taraf da mevzisini korudu.`, 'system');
+      }
+    }
+  }
+
+  updateHpDisplay();
+  refreshBoard();
+}
+
+// Komuta paneli düğmeleri
+document.querySelectorAll('.stance-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!Battle3D.isActive()) return;
+    if (Battle3D.setStance(btn.dataset.stance)) {
+      sfx('click');
+      writeLog(`KOMUT: ${Battle3D.STANCES[btn.dataset.stance].label}!`, 'player');
+      updateBattleHUD();
+    }
+  });
+});
+
+document.querySelectorAll('.ability-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!Battle3D.isActive()) return;
+    const id = btn.dataset.ab;
+    const ab = Battle3D.ABILITIES[id];
+    const st = Battle3D.getState();
+    if (!st || st.cp < ab.cost) { sfx('damage'); return; }
+
+    if (ab.target) {
+      // Hedefli yetenek: platforma tıklanınca uygulanır
+      armedBattleAbility = armedBattleAbility === id ? null : id;
+      const side = ab.target === 'enemy' ? 'ai' : 'player';
+      Scene3D.setTacticTargets(armedBattleAbility ? side : null, ['land', 'air', 'sea']);
+      sfx('click');
+    } else {
+      if (Battle3D.useAbility(id)) sfx('tactic');
+    }
+    updateBattleHUD();
+  });
+});
 
 // ==========================================================================
 // Round End

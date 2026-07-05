@@ -10,6 +10,20 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v4.0 "Gerçek Zamanlı Taarruz" — Savaş Sistemi Yeniden Tasarımı
+
+Kartlar artık sayı çarpıştırmıyor. **Her kart sahaya bir ordu çıkarır** ve üç cephe **aynı anda, gerçek zamanlı** çarpışır. Tasarım hedefi: **beceri > istatistik** — doğru anda doğru komut, ham güçten değerlidir.
+
+- **Birlik Simülasyonu** — Kara cephesinde tanklar, havada jetler, denizde savaş gemileri (taraf renkli low-poly birimler). Birlikler ilerler, menzile girince iz mermileriyle ateş eder, ölünce patlar. Kart gücü birlik sayısını/canını belirler ama savaşın kaderini belirlemez.
+- **Duruş Komutları** (savaş sırasında her an değiştirilebilir): ⚔ **Taarruz** (+%42 hasar / -%28 savunma), 🛡 **Mevzi** (dengeli), 🏰 **Savunma** (+%48 savunma), 🏳 **Ricat** (birlikleri kurtar: kaçan birlik kartı yaşatır, cephe kaybedilir ama HP hasarı yarıya iner).
+- **Komuta Puanı & Yetenekler** — CP zamanla dolar (deniz gücün lojistiği hızlandırır): Hava Saldırısı (4), Topçu Barajı (3), Acil Takviye (5), Sis Perdesi (2), Elektronik Harp (3). Hedefli yetenekler 3D sahnede cepheye tıklanarak atılır.
+- **Birleşik Kuvvet** — Sahadaki hava gücün kara birliklerinin hasarını besler; deniz gücün CP üretimini hızlandırır.
+- **Momentum** — Cephe kazanmak stratejik avantaj verir: Hava zaferi → tüm birliklere +%18 hasar; Kara zaferi → düşman -%12 hasar; Deniz zaferi → CP %50 hızlı dolar.
+- **Arazi** — Her savaş rastgele bir haritada: Çöl (taarruz güçlü), Orman (savunma güçlü, hava zayıf), Dağ (zırh etkisiz), Kar (yavaş ateş), Ada (deniz kritik).
+- **Muharebe Olayları** — 12. saniyede %45 ihtimalle: Şiddetli Yağmur, Gece Muharebesi, Yakıt Krizi, Elektronik Parazit.
+- **Akıllı Düşman Komutan** — Kolay: yavaş tepki; Normal: kazanırken taarruza, kaybederken savunmaya geçer; **Zor: senin duruşuna karşı hamle yapar** ve yetenekleri optimal anda kullanır.
+- Ricat eden kart güç kaybıyla hayatta kalır; kaybedilen cephe HP hasrını kazananın **kalan** gücü belirler (eziyerek kazanmak daha çok vurur).
+
 ## v3.1 "Savaş Hissiyatı" Güncellemesi
 
 - **Ulusal Marş Ezgileri** 🎺 — Bir ülkeyi cepheye sürdüğünde, o ülkenin marşının ~2 saniyelik açılış ezgisi bando sesiyle çalar (trampet girişi + bakır nefesliler + tuba desteği). 16 ülkenin ezgisi nota nota WebAudio ile sentezlenir (Türkiye, ABD, Rusya, Çin, Fransa, Japonya, İsrail, Ukrayna...); kalanlar 3 farklı askeri boru fanfarından birini çalar. **Ses dosyası yok, telif riski yok** — melodiler kamu malı bestelerin kısa yaklaşık açılışlarıdır.

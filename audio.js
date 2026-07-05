@@ -286,7 +286,10 @@ const AudioEngine = (() => {
     legendary() { tone(1568, 0.22, { type: "sine", vol: 0.12 }); tone(1975, 0.28, { type: "sine", vol: 0.1, delay: 0.12 }); tone(2637, 0.35, { type: "sine", vol: 0.08, delay: 0.24 }); noise(0.4, { vol: 0.04, freq: 7500, type: "highpass", delay: 0.1 }); },
     defeat()    { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.32, { type: "sawtooth", vol: 0.1, delay: i * 0.17 })); },
     // Düşman konuşlanması: karanlık savaş borusu
-    enemyHorn() { brassNote(noteFreq("A3"), 0.4, 0, 0.07); brassNote(noteFreq("Ab3"), 0.55, 0.42, 0.08); noise(0.3, { vol: 0.06, freq: 500, slideTo: 120 }); }
+    enemyHorn() { brassNote(noteFreq("A3"), 0.4, 0, 0.07); brassNote(noteFreq("Ab3"), 0.55, 0.42, 0.08); noise(0.3, { vol: 0.06, freq: 500, slideTo: 120 }); },
+    // Gerçek zamanlı muharebe sesleri (kısık, spam-korumalı)
+    shot()      { noise(0.06, { vol: 0.05, freq: 3200, type: "bandpass", q: 2, slideTo: 900 }); },
+    boomSmall() { noise(0.28, { vol: 0.09, freq: 500, slideTo: 70 }); tone(75, 0.22, { type: "sine", vol: 0.07, slideTo: 40 }); }
   };
 
   function play(name) {
