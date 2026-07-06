@@ -162,6 +162,14 @@
           <p>Aynı ekranda arkadaşına karşı! Sırayla plan yapın, cihazı devredin, cepheler aynı anda çözülsün. Kazanan +15 madalya alır.</p>
           <button id="btn-mode-duel" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-handshake-angle"></i> DÜELLOYU BAŞLAT</button>
         </div>
+
+        <!-- Online Ranked -->
+        <div class="mode-card mode-online">
+          <div class="mode-icon"><i class="fa-solid fa-globe"></i></div>
+          <h2>ONLINE SIRALI <span class="mode-tag mode-tag-live">PvP</span></h2>
+          <p>Dünyadaki gerçek oyuncuların ordularına karşı savaş! Ülkeni seç, ordunu kur, Elo sıralamasında yüksel. "Türkiye mi Yunanistan mı?" — kazanan sen belirle.</p>
+          <button id="btn-mode-online" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-earth-europe"></i> SIRALIYA GİR</button>
+        </div>
       </div>
 
       <div class="menu-rules">
@@ -171,6 +179,7 @@
 
       <div class="menu-footer">
         <button id="btn-menu-achievements" class="btn btn-secondary"><i class="fa-solid fa-award"></i> Başarımlar (<span id="ach-count">0</span>/<span id="ach-total">0</span>)</button>
+        <button id="btn-menu-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Liderlik Tablosu</button>
         <button id="btn-menu-sound" class="btn btn-secondary"><i class="fa-solid fa-volume-high"></i> Ses: <span id="sound-state">Açık</span></button>
       </div>
     </div>
@@ -183,6 +192,67 @@
       <p class="leader-sub">Savaş alanındaki efsanevi anların kalıcı kaydı.</p>
       <div id="achievements-grid" class="achievements-grid"></div>
       <button id="btn-close-achievements" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-xmark"></i> Kapat</button>
+    </div>
+  </div>
+
+  <!-- Online: Profil (ad + ülke) -->
+  <div id="online-profile-overlay" class="overlay hidden">
+    <div class="leader-modal online-profile-modal">
+      <h1><i class="fa-solid fa-earth-europe"></i> ONLINE SIRALI</h1>
+      <p class="leader-sub">Komutan adını ve ülkeni seç. Ordun bu bayrak altında savaşacak — dünya seni bu kimlikle tanıyacak. <span id="online-rating-badge" class="online-rating-badge">⭐ 1000</span></p>
+      <div class="online-name-row">
+        <label for="online-name-input"><i class="fa-solid fa-user"></i> Komutan Adı</label>
+        <input id="online-name-input" type="text" maxlength="18" placeholder="ör. GaziKomutan" />
+      </div>
+      <div class="online-country-label"><i class="fa-solid fa-flag"></i> Ülkeni Seç</div>
+      <div id="online-country-grid" class="online-country-grid"></div>
+      <div class="online-profile-actions">
+        <button id="btn-online-back" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Geri</button>
+        <button id="btn-online-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Sıralama</button>
+        <button id="btn-online-play" class="btn btn-primary btn-glow"><i class="fa-solid fa-play"></i> SAVAŞ!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Eşleşme tanıtımı -->
+  <div id="online-matchup-overlay" class="overlay hidden">
+    <div class="matchup-card">
+      <div class="mu-side mu-me">
+        <div id="mu-my-flag" class="mu-flag">🇹🇷</div>
+        <div id="mu-my-name" class="mu-name">Sen</div>
+        <div id="mu-my-rating" class="mu-rating">⭐ 1000</div>
+      </div>
+      <div class="mu-vs">VS</div>
+      <div class="mu-side mu-op">
+        <div id="mu-op-flag" class="mu-flag">🇬🇷</div>
+        <div id="mu-op-name" class="mu-name">Rakip</div>
+        <div id="mu-op-rating" class="mu-rating">⭐ 1000</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Sonuç -->
+  <div id="online-result-overlay" class="overlay hidden">
+    <div class="online-result-modal">
+      <h1 id="or-title">ZAFER!</h1>
+      <div id="or-matchup" class="or-matchup"></div>
+      <div id="or-rating" class="or-rating"></div>
+      <div class="or-record-line">Sıralı sicilin: <span id="or-record">0G 0Y</span></div>
+      <div class="online-result-actions">
+        <button id="btn-or-again" class="btn btn-primary btn-glow"><i class="fa-solid fa-rotate-right"></i> TEKRAR</button>
+        <button id="btn-or-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Sıralama</button>
+        <button id="btn-or-menu" class="btn btn-secondary"><i class="fa-solid fa-house"></i> Menü</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Liderlik Tablosu -->
+  <div id="leaderboard-overlay" class="overlay hidden">
+    <div class="leader-modal leaderboard-modal">
+      <h1><i class="fa-solid fa-ranking-star"></i> LİDERLİK TABLOSU</h1>
+      <p class="leader-sub">Dünyanın en iyi komutanları. Elo puanınla yüksel.</p>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
+      <button id="btn-close-leaderboard" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-xmark"></i> Kapat</button>
     </div>
   </div>
 
@@ -324,6 +394,7 @@
   <script src="audio.js"></script>
   <script src="scene3d.js"></script>
   <script src="warmap.js"></script>
+  <script src="net.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

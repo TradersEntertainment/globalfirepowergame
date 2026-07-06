@@ -10,6 +10,17 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.0 "Online Sıralı" — Asenkron PvP + Elo Sıralama + Liderlik Tablosu
+
+İlk **online çok oyunculu** mod. "Arkadaşını/dünyayı yen" döngüsü: ülkeni seç, ordunu kur, gerçek oyuncuların kayıtlı ordularına karşı savaş, Elo sıralamasında yüksel. Viral kanca burada zirveye çıkar — **🇹🇷 Türkiye vs 🇬🇷 Yunanistan** maçları bakışta okunur.
+
+- **Asenkron eşleştirme** — Oyuncu ordusunu kurar → sunucuya kaydedilir → başka bir oyuncunun *kayıtlı* ordusuyla eşleştirilir; savaş oyuncunun cihazında çözülür (rakip birlikler snapshot'tan otonom savaşır, oyuncu kendi tarafını canlı yönetir). İkisinin aynı anda online olması gerekmez. Havuz boşsa/çevrimdışıysa nazikçe **bot maçına** düşer.
+- **Ülke kimliği & profil** — Auth yok; ilk açılışta kalıcı `playerId` üretilir (localStorage). Oyuncu **ad + ülke bayrağı** seçer; ordusu o bayrak altında savaşır. Muharebede plakalar ülke + Elo gösterir (anlamsız HP çubukları gizlenir).
+- **Adil ranked bütçe** — Herkese sabit birlik bütçesi (⛰42 ✈28 ⚓20); ülke seçimi güç değil **kimlik/kozmetik** — ranked adil kalır, "ülkeni oyna" hissi korunur.
+- **Elo sıralama & liderlik tablosu** — Standart Elo (K=32); maç sonrası iki tarafın da rating'i güncellenir. Sonuç ekranında **rating delta** animasyonu; menüden ve profil ekranından **top-20 liderlik tablosu** (bayrak + ad + G/Y + Elo, kendi sıran vurgulanır).
+- **Sıfır-build backend** — `/api/*.js` Vercel Serverless Functions (statik siteyle otomatik dağıtılır) + **Vercel KV (Upstash Redis)**, `fetch` ile doğrudan REST (npm bağımlılığı yok). Uçlar: `submit-army`, `find-match`, `report-result`, `leaderboard`. Kurulum: Vercel'de KV store bağla → `KV_REST_API_URL` + `KV_REST_API_TOKEN` env otomatik gelir. Env yoksa tüm uçlar 200 + bot/çevrimdışı fallback döner (oyun her zaman oynanır).
+- **Yeni dosyalar** — İstemci `net.js` (API sarmalayıcı + offline degrade), `api/_kv.js` (KV REST + Elo yardımcı), `api/submit-army.js`, `api/find-match.js`, `api/report-result.js`, `api/leaderboard.js`. Motor tarafında `warmap.js` `opponentArmy` snapshot yerleşimi + `captureArmy` serileştirmesi ekler.
+
 ## v5.1 "Görsel Yükseltme" — Muharebe Sahası Grafik & Ulusal Kimlik
 
 v5.0 mekaniği korunarak muharebe sahnesi profesyonel görsel kaliteye çıkarıldı ve **viral kanca** eklendi: birlikler artık hangi ülkeye ait olduklarını bakışta gösterir — "Türkiye vs Yunanistan savaşı" reklamı rahatça yapılabilir. Motor: `warmap.js` + `scene3d.js` post-processing.

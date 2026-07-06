@@ -1630,6 +1630,242 @@ function destroyUnit(owner, front, card, exploded = false) {
 let bannerTimer = null;
 const FORCE_TR = { land: 'Kara', air: 'Hava', sea: 'Deniz' };
 
+// ==========================================================================
+// Online Sıralı (Asenkron PvP) — profil, eşleştirme, muharebe, rating
+// ==========================================================================
+const RANKED_BUDGET = { land: 42, air: 28, sea: 20 };
+let onlineSelectedIso = 'tr';
+let onlineBusy = false;
+
+function countryByIso(iso) {
+  return COUNTRIES_DB.find(c => c.iso === iso) || COUNTRIES_DB[0];
+}
+function randomEnemyCountry(myIso) {
+  const pool = COUNTRIES_DB.filter(c => c.iso !== myIso);
+  return pool[Math.floor(Math.random() * pool.length)] || COUNTRIES_DB[0];
+}
+function budgetFromArmy(units) {
+  const b = { land: 0, air: 0, sea: 0 };
+  (units || []).forEach(u => { const t = Warmap.UNIT_TYPES[u.type]; if (t) b[t.force] += t.cost; });
+  return b;
+}
+
+// --- Profil modalı (ad + ülke) ---
+function openOnlineProfile() {
+  const p = getProfile();
+  document.getElementById('online-name-input').value = p.name || '';
+  document.getElementById('online-rating-badge').innerText = `⭐ ${p.rating} · ${p.wins}G ${p.losses}Y`;
+  buildOnlineCountryGrid(p.iso);
+  mainMenuOverlay.classList.add('hidden');
+  document.getElementById('online-profile-overlay').classList.remove('hidden');
+}
+function buildOnlineCountryGrid(currentIso) {
+  const grid = document.getElementById('online-country-grid');
+  grid.innerHTML = '';
+  onlineSelectedIso = currentIso || 'tr';
+  COUNTRIES_DB.forEach(c => {
+    const cell = document.createElement('div');
+    cell.className = 'oc-flag' + (c.iso === onlineSelectedIso ? ' selected' : '');
+    cell.dataset.iso = c.iso;
+    cell.innerHTML = `<span class="oc-emoji">${c.flag}</span><span class="oc-name">${c.name}</span>`;
+    cell.addEventListener('click', () => {
+      sfx('click');
+      onlineSelectedIso = c.iso;
+      grid.querySelectorAll('.oc-flag').forEach(x => x.classList.toggle('selected', x.dataset.iso === c.iso));
+    });
+    grid.appendChild(cell);
+  });
+}
+function confirmOnlineProfileAndPlay() {
+  const p = getProfile();
+  const raw = (document.getElementById('online-name-input').value || '').trim();
+  p.name = raw.replace(/[<>]/g, '').slice(0, 18) || ('Komutan-' + p.id.slice(-4));
+  p.iso = onlineSelectedIso;
+  saveMeta();
+  document.getElementById('online-profile-overlay').classList.add('hidden');
+  startOnlineRankedFlow();
+}
+
+// --- Eşleşme tanıtım kartı ---
+function showOnlineMatchup(myC, profile, opponent, oppC, isBot) {
+  return new Promise(resolve => {
+    document.getElementById('mu-my-flag').innerText = myC.flag;
+    document.getElementById('mu-my-name').innerText = profile.name;
+    document.getElementById('mu-my-rating').innerText = `⭐ ${profile.rating}`;
+    document.getElementById('mu-op-flag').innerText = oppC.flag;
+    document.getElementById('mu-op-name').innerText = isBot ? 'Bot Rakip' : (opponent.name || 'Rakip');
+    document.getElementById('mu-op-rating').innerText = isBot ? '⭐ ---' : `⭐ ${opponent.rating}`;
+    const ov = document.getElementById('online-matchup-overlay');
+    ov.classList.remove('hidden');
+    sfx('enemyHorn');
+    setTimeout(() => { ov.classList.add('hidden'); resolve(); }, 2100);
+  });
+}
+
+async function startOnlineRankedFlow() {
+  if (onlineBusy) return;
+  onlineBusy = true;
+  gameMode = 'online';
+  gameState = 'battle';
+  round = 1;
+  combatLog.innerHTML = '';
+  const profile = getProfile();
+  const myCountry = countryByIso(profile.iso);
+
+  // 1) Rakip bul (savaştan önce — snapshot ile karşı taraf kurulur)
+  writeLog('Rakip aranıyor…', 'system');
+  const match = await Net.findMatch(profile.id, profile.rating);
+  let opponent = null, oppCountry;
+  if (match && match.opponent) { opponent = match.opponent; oppCountry = countryByIso(opponent.iso); }
+  else { oppCountry = randomEnemyCountry(profile.iso); }
+  const isBot = !opponent;
+
+  await showOnlineMatchup(myCountry, profile, opponent, oppCountry, isBot);
+
+  // Plakaları ülke kimliğiyle güncelle (viral kanca: bayraklar görünür)
+  document.body.classList.add('online-mode');
+  document.getElementById('ai-name').innerText = `${oppCountry.flag} ${isBot ? 'Bot Rakip' : opponent.name}`;
+  document.getElementById('ai-leader-display').innerHTML = `<span>⭐ ${isBot ? '---' : opponent.rating}</span>`;
+  document.getElementById('player-name').innerText = `${myCountry.flag} ${profile.name}`;
+  document.getElementById('player-leader-display').innerHTML = `<span>⭐ ${profile.rating}</span>`;
+
+  // 2) Sahneyi muharebeye çevir
+  sfx('battle');
+  AudioEngine.setAmbientIntensity(2);
+  document.body.classList.add('warmap-active');
+  hudEl.classList.add('in-battle');
+  Scene3D.setTacticTargets(null);
+  Scene3D.setTableVisible(false);
+
+  const terrain = Warmap.pickTerrain();
+  const battleEvent = Warmap.maybeEvent();
+  const budgets = {
+    player: { ...RANKED_BUDGET },
+    ai: opponent ? budgetFromArmy(opponent.units) : { ...RANKED_BUDGET }
+  };
+  const countries = {
+    player: { land: myCountry, air: myCountry, sea: myCountry },
+    ai: { land: oppCountry, air: oppCountry, sea: oppCountry }
+  };
+
+  showBattleBanner(`${terrain.icon} ${terrain.name}`, terrain.desc, null);
+  document.getElementById('bt-terrain').innerText = `${terrain.icon} ${terrain.name}`;
+  document.getElementById('battle-topbar').classList.remove('hidden');
+  buildPlacementRoster(budgets.player);
+  document.getElementById('placement-hud').classList.remove('hidden');
+  writeLog('ORDUNU KUR: Rakibin ordusunu oku, kontra kur, sonra HAZIR de!', 'player');
+
+  const result = await Warmap.runBattle({
+    budgets, countries, terrain, event: battleEvent, difficulty: 'normal',
+    opponentArmy: opponent ? opponent.units : null, captureArmy: true
+  }, {
+    onLog: writeLog,
+    onBanner: showBattleBanner,
+    onCP: updateBattleHUD,
+    onBudget: () => refreshPlacementRoster(),
+    onCount: (c) => {
+      document.getElementById('bt-player-count').innerText = c.player;
+      document.getElementById('bt-ai-count').innerText = c.ai;
+      const el = Warmap.getElapsed();
+      const m = Math.floor(el / 60), s = Math.floor(el % 60);
+      document.getElementById('bt-timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+    },
+    onPhase: (phase) => {
+      if (phase === 'fight' || phase === 'fight_spectate') {
+        document.getElementById('placement-hud').classList.add('hidden');
+        document.getElementById('battle-hud').classList.remove('hidden');
+        updateBattleHUD();
+        writeLog('SAVAŞ BAŞLADI! Birlik seç → hedefe tıkla. Duruş ve yetenekleri doğru anda kullan!', 'player');
+      }
+    },
+    onDeployTick: (s) => { document.getElementById('ph-timer').innerText = s; },
+    onSelection: (info) => {
+      document.getElementById('battle-sel-info').innerText = info
+        ? `${info.name}${info.count === 1 ? ` (${info.hp}/${info.maxHp})` : ''} — hedefe tıkla`
+        : 'Birlik seç ve yönlendir';
+    },
+    onAbilityArmed: () => updateBattleHUD()
+  });
+
+  // Sahneyi geri döndür
+  document.getElementById('battle-hud').classList.add('hidden');
+  document.getElementById('battle-topbar').classList.add('hidden');
+  document.getElementById('placement-hud').classList.add('hidden');
+  document.body.classList.remove('warmap-active');
+  hudEl.classList.remove('in-battle');
+  Scene3D.overrideCamera(false);
+  Scene3D.setTableVisible(true);
+  Scene3D.cameraPlay();
+
+  const won = result.winner === 'player';
+  const oldRating = profile.rating;
+
+  // 3) Orduyu havuza kaydet + sonucu raporla → rating
+  await Net.submitArmy(profile, result.playerArmy || []);
+  const rep = await Net.reportResult(profile, opponent, won);
+  applyRating(rep.rating, won);
+  META.stats.matches++;
+  if (won) META.stats.wins++; else META.stats.losses++;
+  saveMeta();
+
+  onlineBusy = false;
+  showOnlineResult(won, oldRating, rep.rating, rep.delta, myCountry, oppCountry, opponent, isBot);
+}
+
+function showOnlineResult(won, oldRating, newRating, delta, myC, oppC, opponent, isBot) {
+  document.body.classList.remove('online-mode');
+  const ov = document.getElementById('online-result-overlay');
+  ov.classList.remove('hidden');
+  ov.classList.toggle('win', won);
+  ov.classList.toggle('lose', !won);
+  document.getElementById('or-title').innerText = won ? 'ZAFER!' : 'YENİLGİ';
+  document.getElementById('or-matchup').innerHTML =
+    `${myC.flag} <b>SEN</b> &nbsp;${won ? '▸' : '◂'}&nbsp; ${oppC.flag} <b>${isBot ? 'Bot' : (opponent.name || 'Rakip')}</b>`;
+  const sign = delta >= 0 ? '+' : '';
+  document.getElementById('or-rating').innerHTML =
+    `Elo: <b>${oldRating}</b> → <b>${newRating}</b> <span class="or-delta ${delta >= 0 ? 'up' : 'down'}">${sign}${delta}</span>`;
+  document.getElementById('or-record').innerText = `${META.online.wins}G ${META.online.losses}Y`;
+  if (won) { sfx('victory'); Scene3D.celebrationBurst('victory'); }
+  else { sfx('defeat'); Scene3D.celebrationBurst('defeat'); }
+}
+
+async function openLeaderboard() {
+  const ov = document.getElementById('leaderboard-overlay');
+  ov.classList.remove('hidden');
+  const list = document.getElementById('leaderboard-list');
+  list.innerHTML = '<div class="lb-loading">Yükleniyor…</div>';
+  const profile = getProfile();
+  const data = await Net.leaderboard(profile.id, 20);
+  if (data.offline || !data.entries || data.entries.length === 0) {
+    list.innerHTML = `<div class="lb-empty">${data.offline
+      ? 'Çevrimdışı — liderlik tablosu için sunucu (Vercel KV) gerekli.'
+      : 'Henüz kayıtlı oyuncu yok. İlk sıralı maçını oyna!'}</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  data.entries.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (e.rank <= 3 ? ' lb-top' : '');
+    const c = countryByIso(e.iso);
+    row.innerHTML = `<span class="lb-rank">#${e.rank}</span>` +
+      `<span class="lb-flag">${c.flag}</span>` +
+      `<span class="lb-name">${e.name}</span>` +
+      `<span class="lb-wl">${e.wins}G ${e.losses}Y</span>` +
+      `<span class="lb-rating">⭐ ${e.rating}</span>`;
+    list.appendChild(row);
+  });
+  if (data.you) {
+    const you = document.createElement('div');
+    you.className = 'lb-row lb-you';
+    you.innerHTML = `<span class="lb-rank">#${data.you.rank}</span>` +
+      `<span class="lb-flag">${countryByIso(profile.iso).flag}</span>` +
+      `<span class="lb-name">${profile.name} (sen)</span>` +
+      `<span class="lb-wl">${META.online.wins}G ${META.online.losses}Y</span>` +
+      `<span class="lb-rating">⭐ ${data.you.rating}</span>`;
+    list.appendChild(you);
+  }
+}
+
 async function startBattlePhase() {
   gameState = 'battle';
   btnBattle.disabled = true;
@@ -2370,6 +2606,48 @@ document.getElementById('btn-mode-campaign').addEventListener('click', () => {
 document.getElementById('btn-mode-duel').addEventListener('click', () => {
   sfx('click');
   startDuel();
+});
+
+// ---- Online Sıralı ----
+document.getElementById('btn-mode-online').addEventListener('click', () => {
+  sfx('click');
+  openOnlineProfile();
+});
+document.getElementById('btn-online-play').addEventListener('click', () => {
+  sfx('click');
+  confirmOnlineProfileAndPlay();
+});
+document.getElementById('btn-online-back').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('online-profile-overlay').classList.add('hidden');
+  showMainMenu();
+});
+document.getElementById('btn-menu-leaderboard').addEventListener('click', () => {
+  sfx('click');
+  openLeaderboard();
+});
+document.getElementById('btn-online-leaderboard').addEventListener('click', () => {
+  sfx('click');
+  openLeaderboard();
+});
+document.getElementById('btn-close-leaderboard').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('leaderboard-overlay').classList.add('hidden');
+});
+document.getElementById('btn-or-again').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('online-result-overlay').classList.add('hidden');
+  startOnlineRankedFlow();
+});
+document.getElementById('btn-or-leaderboard').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('online-result-overlay').classList.add('hidden');
+  openLeaderboard();
+});
+document.getElementById('btn-or-menu').addEventListener('click', () => {
+  sfx('click');
+  document.getElementById('online-result-overlay').classList.add('hidden');
+  showMainMenu();
 });
 
 document.getElementById('btn-menu-achievements').addEventListener('click', () => {

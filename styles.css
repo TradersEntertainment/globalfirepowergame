@@ -1970,3 +1970,147 @@ body.warmap-active .log-panel { top: 60px; }
   .plate-info h2 { font-size: 0.85rem; }
   .btn-battle { padding: 12px 18px; font-size: 0.85rem; }
 }
+
+/* ==========================================================================
+   Online Sıralı (Asenkron PvP)
+   ========================================================================== */
+.mode-online { border-color: hsla(145, 80%, 45%, 0.35); }
+.mode-online .mode-icon { color: var(--color-success); }
+.mode-tag-live {
+  background: var(--color-success);
+  color: #04120b;
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100% { box-shadow: 0 0 0 hsla(145,80%,45%,0.7); } 50% { box-shadow: 0 0 12px hsla(145,80%,45%,0.9); } }
+
+/* Online muharebede anlamsız HP çubuklarını gizle (plakalar ülke kimliği gösterir) */
+body.online-mode .hp-block { display: none !important; }
+body.online-mode .plate-info h2 { font-size: 1.05rem; }
+
+/* --- Profil modalı --- */
+.online-rating-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: hsla(45, 100%, 50%, 0.15);
+  color: var(--color-premium);
+  font-family: var(--font-family-mono);
+  font-size: 0.82rem;
+}
+.online-name-row { margin: 18px auto 10px; max-width: 420px; text-align: left; }
+.online-name-row label { display: block; color: var(--text-secondary); font-size: 0.82rem; margin-bottom: 6px; }
+.online-name-row input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans);
+  font-size: 1rem;
+  outline: none;
+  user-select: text;
+}
+.online-name-row input:focus { border-color: var(--color-accent); box-shadow: var(--glow-shadow); }
+.online-country-label { color: var(--text-secondary); font-size: 0.82rem; margin: 14px 0 8px; }
+.online-country-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 8px;
+  max-height: 42vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+.oc-flag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.oc-flag:hover { border-color: var(--color-accent); transform: translateY(-2px); }
+.oc-flag.selected { border-color: var(--color-success); box-shadow: 0 0 12px hsla(145,80%,45%,0.4); background: hsla(145,80%,45%,0.12); }
+.oc-emoji { font-size: 1.7rem; line-height: 1; }
+.oc-name { font-size: 0.72rem; color: var(--text-secondary); text-align: center; }
+.online-profile-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+
+/* --- Eşleşme kartı --- */
+#online-matchup-overlay { background: hsla(222, 40%, 3%, 0.85); }
+.matchup-card {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 30px 46px;
+  border-radius: 18px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  box-shadow: var(--glow-shadow);
+}
+.mu-side { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 150px; }
+.mu-me { animation: muInLeft 0.5s cubic-bezier(0.2,0.9,0.3,1.2); }
+.mu-op { animation: muInRight 0.5s cubic-bezier(0.2,0.9,0.3,1.2); }
+@keyframes muInLeft { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+@keyframes muInRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
+.mu-flag { font-size: 4rem; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5)); }
+.mu-name { font-weight: 700; font-size: 1.15rem; }
+.mu-rating { font-family: var(--font-family-mono); color: var(--color-premium); font-size: 0.9rem; }
+.mu-vs {
+  font-family: var(--font-family-mono);
+  font-weight: 800;
+  font-size: 2rem;
+  color: var(--color-danger);
+  text-shadow: var(--danger-glow);
+  animation: vsPop 0.5s 0.25s both cubic-bezier(0.2,0.9,0.3,1.6);
+}
+@keyframes vsPop { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+
+/* --- Sonuç modalı --- */
+.online-result-modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: 18px;
+  padding: 34px 44px;
+  text-align: center;
+  max-width: 480px;
+  animation: modalScale 0.4s cubic-bezier(0.2,0.9,0.3,1.2);
+}
+#online-result-overlay.win .online-result-modal { border-color: hsla(145,80%,45%,0.5); box-shadow: 0 0 34px hsla(145,80%,45%,0.35); }
+#online-result-overlay.lose .online-result-modal { border-color: hsla(0,85%,55%,0.5); box-shadow: 0 0 34px hsla(0,85%,55%,0.3); }
+#or-title { font-size: 2.4rem; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
+#online-result-overlay.win #or-title { color: var(--color-success); }
+#online-result-overlay.lose #or-title { color: var(--color-danger); }
+.or-matchup { font-size: 1.4rem; margin-bottom: 14px; }
+.or-rating { font-family: var(--font-family-mono); font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 8px; }
+.or-delta { font-weight: 800; margin-left: 8px; }
+.or-delta.up { color: var(--color-success); }
+.or-delta.down { color: var(--color-danger); }
+.or-record-line { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 22px; }
+.online-result-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* --- Liderlik tablosu --- */
+.leaderboard-modal { max-width: 560px; }
+.leaderboard-list { display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow-y: auto; margin-top: 10px; }
+.lb-row {
+  display: grid;
+  grid-template-columns: 48px 34px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+.lb-row.lb-top { border-color: hsla(45,100%,50%,0.4); background: hsla(45,100%,50%,0.07); }
+.lb-row.lb-you { border-color: var(--color-accent); box-shadow: var(--glow-shadow); }
+.lb-rank { font-family: var(--font-family-mono); font-weight: 700; color: var(--color-premium); }
+.lb-flag { font-size: 1.4rem; }
+.lb-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-wl { font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-family-mono); }
+.lb-rating { font-family: var(--font-family-mono); color: var(--color-premium); font-weight: 700; }
+.lb-loading, .lb-empty { text-align: center; color: var(--text-muted); padding: 30px 10px; }

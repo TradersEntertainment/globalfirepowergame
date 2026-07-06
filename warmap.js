@@ -610,6 +610,26 @@ const Warmap = (() => {
     });
   }
 
+  // Online Sıralı: kayıtlı bir ordu snapshot'ını sahaya kur (aiPlace yerine).
+  // Snapshot'lar oyuncu bölgesinde (z>0) yakalanır; 'ai' tarafına aynalanır (z<0).
+  function snapshotPlace(side, army) {
+    if (!Array.isArray(army)) return;
+    army.forEach(u => {
+      if (!u || !UNIT_TYPES[u.type]) return;
+      if (sideCount(side) >= MAX_UNITS_PER_SIDE) return;
+      const x = Math.max(MAP.minX + 1, Math.min(MAP.maxX - 1, +u.x || 0));
+      const z = side === 'ai' ? -Math.abs(+u.z || 8) : Math.abs(+u.z || 8);
+      S.units.push(makeUnit(u.type, side, x, z));
+    });
+  }
+
+  // Oyuncunun mevcut yerleşimini serialize et (havuza kaydetmek için).
+  function captureArmySnapshot() {
+    return S.units
+      .filter(u => u.side === 'player' && u.alive)
+      .map(u => ({ type: u.type, x: +u.mesh.position.x.toFixed(2), z: +u.mesh.position.z.toFixed(2), force: u.force }));
+  }
+
   // ==========================================================================
   // Hedefleme & Ateş
   // ==========================================================================
@@ -1188,7 +1208,8 @@ const Warmap = (() => {
       winner, hqCaptured,
       forces,
       totalPlayer: sideStrength('player'),
-      totalAi: sideStrength('ai')
+      totalAi: sideStrength('ai'),
+      playerArmy: S.capturedArmy || []
     };
 
     setTimeout(() => finish(result), 1400);
@@ -1491,6 +1512,7 @@ const Warmap = (() => {
   function startFight() {
     if (S.phase !== 'deploy') return;
     S.phase = 'fight';
+    if (S.captureArmy) S.capturedArmy = captureArmySnapshot(); // online: kullanılan orduyu sakla
     clearGhost();
     S.selectedType = null;
     // Yerleştirme bölge göstergeleri sönsün
@@ -1516,6 +1538,7 @@ const Warmap = (() => {
         finished: false, eventFired: false,
         terrain: config.terrain, event: config.event,
         difficulty: diff, spectateBoth: !!config.spectateBoth,
+        captureArmy: !!config.captureArmy, capturedArmy: [],
         units: [], unitCounter: 0,
         budget: {
           player: { land: config.budgets.player.land, air: config.budgets.player.air, sea: config.budgets.player.sea },
@@ -1539,7 +1562,9 @@ const Warmap = (() => {
 
       overheadList.length = 0;
       buildMap(config.terrain);
-      aiPlace('ai');
+      // Online Sıralı: rakip kayıtlı ordu snapshot'ından kurulur; yoksa yerel AI.
+      if (config.opponentArmy && config.opponentArmy.length) snapshotPlace('ai', config.opponentArmy);
+      else aiPlace('ai');
       if (S.spectateBoth) aiPlace('player'); // düello seyir: oyuncu ordusu da otomatik kurulur
 
       // Kamera başlangıcı (yakın ama kuşbakışı) — savaş başında hafif giriş süzülmesi

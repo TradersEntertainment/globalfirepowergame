@@ -27,8 +27,39 @@ const META = {
     tacticsPlayed: 0,
     campaignBest: 0        // temizlenen en yüksek cephe sayısı (0-5)
   },
+  // Online Sıralı profili (asenkron PvP) — kimlik + Elo. Auth yok, localStorage tabanlı.
+  online: {
+    id: null,              // rastgele üretilen kalıcı oyuncu kimliği
+    name: '',              // görünen ad
+    iso: 'tr',             // bayrak/ülke kimliği (countries.js iso)
+    rating: 1000,          // Elo
+    wins: 0,
+    losses: 0
+  },
   muted: false
 };
+
+// Kısa, çakışma olasılığı düşük oyuncu kimliği üret.
+function genPlayerId() {
+  const rnd = Math.random().toString(36).slice(2, 10);
+  return 'p_' + Date.now().toString(36) + rnd;
+}
+
+// Online profili döndürür; ilk çağrıda kimlik üretip kaydeder.
+function getProfile() {
+  if (!META.online.id) {
+    META.online.id = genPlayerId();
+    saveMeta();
+  }
+  return META.online;
+}
+
+// Maç sonrası rating/istatistik uygula ve kaydet.
+function applyRating(newRating, won) {
+  META.online.rating = Math.max(0, Math.round(newRating));
+  if (won) META.online.wins++; else META.online.losses++;
+  saveMeta();
+}
 
 function loadMeta() {
   try {
@@ -39,6 +70,7 @@ function loadMeta() {
       META.unlockedLeaders = saved.unlockedLeaders || [];
       META.achievements = saved.achievements || {};
       META.stats = Object.assign(META.stats, saved.stats || {});
+      META.online = Object.assign(META.online, saved.online || {});
       META.muted = !!saved.muted;
     }
   } catch (e) {
