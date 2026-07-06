@@ -10,6 +10,16 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.1 "Ulusal Doktrinler + Su Reformu" — Ülkeye Özel Birlikler, Counter Ulus, Bilgi Kartları, Nehirli Haritalar
+
+Ulusal kimlik artık oynanışı da belirliyor, birlikleri öğrenmek kolaylaştı ve deniz haritaların merkezine taşındı.
+
+- **Ulusal doktrinler** — 30 ülkenin her birine dengeli asimetrik doktrin: birlik statlarında bir güç kümesi (~+%15-25) ve bir zayıflık (~-%10-15). Örn. **Rusya** +tank −hava, **Türkiye** +İHA/heli −deniz (Bayraktar doktrini), **İsrail** +AA/dron (Demir Kubbe) −deniz, **Çin** +deniz/piyade −hava. Her ülkenin bir **imza birliği** var. Doktrinler her modda etkiler (PvE + Fetih + Düello + Online Sıralı); sabit ranked bütçe korunduğu için ranked adil-asimetrik kalır.
+- **Counter ulus — 🇺🇳 BM Görev Gücü (ELİT)** — "Her şeyin counter'ı" özel fraksiyon: taş-kağıt-makas zayıflığı yok (her düşman tipine ≥1.30× hasar), ama birlik maliyeti ×1.5 → **az ama üstün** ordu (kıtlıkla dengeli). Online sıralı kimlik seçiminde "ELİT" rozetiyle seçilebilir; 30-ülke kart havuzuna girmez.
+- **Bilgi kartları (hover tooltip)** — Birlik/ülke üstüne gelince kart: birim istatistikleri (can/hasar/menzil/hız), **▲Güçlü / ▼Zayıf** kontra listesi ve seçili ülkenin o birime doktrin etkisi. Ülke seçicide doktrin adı + buff/nerf + imza birlik. Öğrenme eğrisini düşürür.
+- **Su reformu** — Deniz artık hep solda şerit değil: araziye göre **kıyı** (dalgalı organik), **nehir** (dikey kıvrımlı kanal) veya **kanal** (eğik su bandı). Nehir/kanal **haritayı böler** ama daima geçilebilir bir **köprü/geçit chokepoint** bırakır — kara birlikleri köprüye hunilenir, gemiler su lanesinde merkezî rol oynar. Su tüm derinlik boyunca uzandığı için gemiler iki tarafta da konabilir. Hücre-tabanlı su mesh'i + dalga animasyonu; birim hareketi su-farkında steering ile suya girmez.
+- **Teknik** — `countries.js` doktrin + `SPECIAL_FACTIONS`; `warmap.js` doktrin stat uygulama (`doctrineMul`), `threatValue` counterAll, `effCost` maliyet çarpanı, su layout sistemi (`buildWaterLayout`/`waterAt`/`resolveStep`), `getUnitInfo`; `app.js` tooltip + elit fraksiyon UI. Doğrulama: doktrin-matematik testi (12/12), 3 su düzeninde tam savaş boyunca `maxGroundInWater=0` (steering doğru), tooltip + costMul (42→33) uçtan uca, PvE/Düello/Online regresyonları ERRORS NONE.
+
 ## v6.0 "Online Sıralı" — Asenkron PvP + Elo Sıralama + Liderlik Tablosu
 
 İlk **online çok oyunculu** mod. "Arkadaşını/dünyayı yen" döngüsü: ülkeni seç, ordunu kur, gerçek oyuncuların kayıtlı ordularına karşı savaş, Elo sıralamasında yüksel. Viral kanca burada zirveye çıkar — **🇹🇷 Türkiye vs 🇬🇷 Yunanistan** maçları bakışta okunur.

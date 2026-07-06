@@ -2114,3 +2114,53 @@ body.online-mode .plate-info h2 { font-size: 1.05rem; }
 .lb-wl { font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-family-mono); }
 .lb-rating { font-family: var(--font-family-mono); color: var(--color-premium); font-weight: 700; }
 .lb-loading, .lb-empty { text-align: center; color: var(--text-muted); padding: 30px 10px; }
+
+/* ==========================================================================
+   Bilgi Kartı (Tooltip) + Elit Fraksiyon
+   ========================================================================== */
+.game-tooltip {
+  position: fixed;
+  z-index: 4000;
+  pointer-events: none;
+  max-width: 320px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: hsla(222, 34%, 9%, 0.97);
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.6), var(--glow-shadow);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.game-tooltip.hidden { display: none; }
+.tt-head { font-size: 0.98rem; display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.tt-head i { color: var(--color-accent); }
+.tt-cost { margin-left: auto; color: var(--color-premium); font-family: var(--font-family-mono); font-size: 0.8rem; }
+.tt-stats { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--font-family-mono); color: var(--text-secondary); margin-bottom: 6px; }
+.tt-air { color: var(--color-accent); }
+.tt-arc { color: var(--color-warning); }
+.tt-cnt { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border-light); padding-top: 6px; }
+.tt-strong { color: var(--color-success); }
+.tt-weak { color: var(--color-danger); }
+.tt-fx { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-light); color: var(--color-premium); font-size: 0.8rem; }
+.tt-doc-name { color: var(--color-accent); font-weight: 700; margin-top: 2px; }
+.tt-doc-tag { color: var(--text-secondary); font-size: 0.8rem; }
+.tt-sig { margin-top: 4px; color: var(--text-secondary); }
+.tt-elite, .oc-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-premium), var(--color-warning));
+  color: #1a1200;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+.oc-flag.oc-elite {
+  position: relative;
+  border-color: hsla(45, 100%, 55%, 0.6);
+  background: linear-gradient(160deg, hsla(45, 100%, 50%, 0.12), hsla(222, 22%, 14%, 0.85));
+  box-shadow: 0 0 14px hsla(45, 100%, 50%, 0.25);
+}
+.oc-badge { position: absolute; top: 4px; right: 4px; }

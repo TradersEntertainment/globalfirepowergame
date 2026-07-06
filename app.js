@@ -1637,8 +1637,12 @@ const RANKED_BUDGET = { land: 42, air: 28, sea: 20 };
 let onlineSelectedIso = 'tr';
 let onlineBusy = false;
 
+// Tüm kimlikler = 30 ülke + özel elit fraksiyon(lar)
+const SPECIALS = (typeof SPECIAL_FACTIONS !== 'undefined') ? SPECIAL_FACTIONS : [];
+const ALL_IDENTITIES = COUNTRIES_DB.concat(SPECIALS);
+
 function countryByIso(iso) {
-  return COUNTRIES_DB.find(c => c.iso === iso) || COUNTRIES_DB[0];
+  return ALL_IDENTITIES.find(c => c.iso === iso) || COUNTRIES_DB[0];
 }
 function randomEnemyCountry(myIso) {
   const pool = COUNTRIES_DB.filter(c => c.iso !== myIso);
@@ -1648,6 +1652,57 @@ function budgetFromArmy(units) {
   const b = { land: 0, air: 0, sea: 0 };
   (units || []).forEach(u => { const t = Warmap.UNIT_TYPES[u.type]; if (t) b[t.force] += t.cost; });
   return b;
+}
+
+// ==========================================================================
+// Bilgi Kartları (Tooltip) — birim + ülke doktrini
+// ==========================================================================
+const CLS_LABEL = { inf: 'Piyade', at: 'Tanksavar', apc: 'ZPT', tank: 'Tank', arty: 'Topçu', aa: 'Hava Savunma', air: 'Jet', heli: 'Helikopter', drone: 'İHA', ship: 'Fırkateyn', boat: 'Hücumbot' };
+const STAT_LABEL = { hp: 'Can', dmg: 'Hasar', range: 'Menzil', speed: 'Hız' };
+let currentPlayerCountries = null; // aktif savaşta oyuncunun kuvvet→ülke haritası (tooltip için)
+let tooltipEl = null;
+function getTooltipEl() { if (!tooltipEl) tooltipEl = document.getElementById('game-tooltip'); return tooltipEl; }
+function moveTooltip(e) {
+  const el = getTooltipEl(); if (!el || el.classList.contains('hidden')) return;
+  const pad = 16, w = el.offsetWidth, h = el.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
+  if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+  el.style.left = Math.max(8, x) + 'px'; el.style.top = Math.max(8, y) + 'px';
+}
+function hideTooltip() { const el = getTooltipEl(); if (el) el.classList.add('hidden'); }
+function showUnitTooltip(type, country, e) {
+  const t = Warmap.UNIT_TYPES[type]; if (!t) return;
+  const info = Warmap.getUnitInfo(type) || { strong: [], weak: [] };
+  const strong = info.strong.map(c => CLS_LABEL[c] || c).join(', ') || '—';
+  const weak = info.weak.map(c => CLS_LABEL[c] || c).join(', ') || '—';
+  let docFx = '';
+  if (country && country.doctrine) {
+    const d = country.doctrine, parts = [];
+    if (d.mods) [t.cls, t.force].forEach(k => { if (d.mods[k]) for (const st in d.mods[k]) { const v = d.mods[k][st]; parts.push(`${STAT_LABEL[st] || st} ${v >= 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`); } });
+    if (d.counterAll) parts.push(`Her tipe ≥${d.counterAll.toFixed(2)}× counter`);
+    if (parts.length) docFx = `<div class="tt-fx">${country.flag} ${d.name}: ${parts.join(' · ')}</div>`;
+  }
+  const el = getTooltipEl();
+  el.innerHTML =
+    `<div class="tt-head"><i class="fa-solid ${t.icon}"></i> <b>${t.name}</b> <span class="tt-cost"><i class="fa-solid fa-coins"></i> ${t.cost}</span></div>` +
+    `<div class="tt-stats"><span title="Can">❤ ${t.hp}</span><span title="Hasar">⚔ ${t.dmg}</span><span title="Menzil">◎ ${t.range}</span><span title="Hız">» ${t.speed}</span>${t.hitsAir ? '<span class="tt-air">✈ havayı vurur</span>' : ''}${t.arc ? '<span class="tt-arc">↗ havan yayı (AoE)</span>' : ''}</div>` +
+    `<div class="tt-cnt"><span class="tt-strong">▲ Güçlü: ${strong}</span><span class="tt-weak">▼ Zayıf: ${weak}</span></div>` +
+    docFx;
+  el.classList.remove('hidden');
+  moveTooltip(e);
+}
+function showCountryTooltip(country, e) {
+  if (!country) return;
+  const d = country.doctrine;
+  const sig = d && d.signature ? (CLS_LABEL[d.signature] || d.signature) : '—';
+  const el = getTooltipEl();
+  el.innerHTML =
+    `<div class="tt-head">${country.flag} <b>${country.name}</b>${country.special ? ' <span class="tt-elite">ELİT</span>' : ''}</div>` +
+    (d ? `<div class="tt-doc-name">${d.name}</div><div class="tt-doc-tag">${d.tag}</div><div class="tt-sig">İmza birlik: <b>${sig}</b></div>` : '<div class="tt-doc-tag">Standart doktrin</div>') +
+    (d && d.counterAll ? `<div class="tt-fx">Her düşman tipine ≥${d.counterAll.toFixed(2)}× · birlik maliyeti ×${d.costMul || 1} (az ama üstün)</div>` : '');
+  el.classList.remove('hidden');
+  moveTooltip(e);
 }
 
 // --- Profil modalı (ad + ülke) ---
@@ -1663,16 +1718,21 @@ function buildOnlineCountryGrid(currentIso) {
   const grid = document.getElementById('online-country-grid');
   grid.innerHTML = '';
   onlineSelectedIso = currentIso || 'tr';
-  COUNTRIES_DB.forEach(c => {
+  // Özel elit fraksiyon(lar) en üstte, sonra 30 ülke
+  SPECIALS.concat(COUNTRIES_DB).forEach(c => {
     const cell = document.createElement('div');
-    cell.className = 'oc-flag' + (c.iso === onlineSelectedIso ? ' selected' : '');
+    cell.className = 'oc-flag' + (c.iso === onlineSelectedIso ? ' selected' : '') + (c.special ? ' oc-elite' : '');
     cell.dataset.iso = c.iso;
-    cell.innerHTML = `<span class="oc-emoji">${c.flag}</span><span class="oc-name">${c.name}</span>`;
+    cell.innerHTML = `<span class="oc-emoji">${c.flag}</span><span class="oc-name">${c.name}</span>` +
+      (c.special ? '<span class="oc-badge">ELİT</span>' : '');
     cell.addEventListener('click', () => {
       sfx('click');
       onlineSelectedIso = c.iso;
       grid.querySelectorAll('.oc-flag').forEach(x => x.classList.toggle('selected', x.dataset.iso === c.iso));
     });
+    cell.addEventListener('mouseenter', (e) => showCountryTooltip(c, e));
+    cell.addEventListener('mousemove', moveTooltip);
+    cell.addEventListener('mouseleave', hideTooltip);
     grid.appendChild(cell);
   });
 }
@@ -1747,6 +1807,7 @@ async function startOnlineRankedFlow() {
     player: { land: myCountry, air: myCountry, sea: myCountry },
     ai: { land: oppCountry, air: oppCountry, sea: oppCountry }
   };
+  currentPlayerCountries = countries.player;
 
   showBattleBanner(`${terrain.icon} ${terrain.name}`, terrain.desc, null);
   document.getElementById('bt-terrain').innerText = `${terrain.icon} ${terrain.name}`;
@@ -1950,6 +2011,7 @@ async function startBattlePhase() {
     player: { land: board.player.land, air: board.player.air, sea: board.player.sea },
     ai: { land: board.ai.land, air: board.ai.air, sea: board.ai.sea }
   };
+  currentPlayerCountries = countries.player;
 
   const result = await Warmap.runBattle({
     budgets, countries, terrain, event: battleEvent, difficulty, spectateBoth: spectate
@@ -2115,6 +2177,9 @@ function buildPlacementRoster(budgets) {
         Warmap.selectUnitType(type);
         refreshPlacementRoster();
       });
+      card.addEventListener('mouseenter', (e) => showUnitTooltip(type, currentPlayerCountries ? currentPlayerCountries[force] : null, e));
+      card.addEventListener('mousemove', moveTooltip);
+      card.addEventListener('mouseleave', hideTooltip);
       el.appendChild(card);
     });
   });

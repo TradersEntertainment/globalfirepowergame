@@ -26,11 +26,11 @@ const Warmap = (() => {
   };
 
   const TERRAINS = [
-    { id: 'desert',   name: 'ÇÖL',    icon: '🏜', ground: 0xb89258, accent: 0xd4b072, sky: 0xd8c69a, horizon: 0x8a7048, desc: 'Açık arazi: Taarruz güçlü, siper az.', assaultBonus: 1.12 },
-    { id: 'forest',   name: 'ORMAN',  icon: '🌲', ground: 0x3c5a2c, accent: 0x4f7038, sky: 0x9fc4e0, horizon: 0x314a40, desc: 'Sık orman: Savunma güçlü, hava zayıf.', defenseBonus: 1.15, airMod: 0.9, cover: true },
-    { id: 'mountain', name: 'DAĞ',    icon: '⛰', ground: 0x6a6a70, accent: 0x84848c, sky: 0xaebccb, horizon: 0x4a4a54, desc: 'Kayalık: Zırh yavaş, hava üstünlüğü değerli.', landMod: 0.9, airMod: 1.1 },
-    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xdde6ef, accent: 0xf2f7fc, sky: 0xcdd8e6, horizon: 0x9fb0c4, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88 },
-    { id: 'urban',    name: 'ŞEHİR',  icon: '🏙', ground: 0x646771, accent: 0x7c808b, sky: 0x8f9db0, horizon: 0x3e414a, desc: 'Kent savaşı: Piyade kral, tanklar riskli.', infBonus: 1.2, tankMod: 0.85, cover: true }
+    { id: 'desert',   name: 'ÇÖL',    icon: '🏜', ground: 0xb89258, accent: 0xd4b072, sky: 0xd8c69a, horizon: 0x8a7048, desc: 'Açık arazi: Taarruz güçlü, siper az.', assaultBonus: 1.12, waterStyles: ['coast', 'river', 'channel'] },
+    { id: 'forest',   name: 'ORMAN',  icon: '🌲', ground: 0x3c5a2c, accent: 0x4f7038, sky: 0x9fc4e0, horizon: 0x314a40, desc: 'Sık orman: Savunma güçlü, hava zayıf.', defenseBonus: 1.15, airMod: 0.9, cover: true, waterStyles: ['river', 'coast'] },
+    { id: 'mountain', name: 'DAĞ',    icon: '⛰', ground: 0x6a6a70, accent: 0x84848c, sky: 0xaebccb, horizon: 0x4a4a54, desc: 'Kayalık: Zırh yavaş, hava üstünlüğü değerli.', landMod: 0.9, airMod: 1.1, waterStyles: ['river', 'channel'] },
+    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xdde6ef, accent: 0xf2f7fc, sky: 0xcdd8e6, horizon: 0x9fb0c4, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88, waterStyles: ['coast', 'river'] },
+    { id: 'urban',    name: 'ŞEHİR',  icon: '🏙', ground: 0x646771, accent: 0x7c808b, sky: 0x8f9db0, horizon: 0x3e414a, desc: 'Kent savaşı: Piyade kral, tanklar riskli.', infBonus: 1.2, tankMod: 0.85, cover: true, waterStyles: ['channel', 'coast'] }
   ];
 
   // Prosedürel zemin dokusu: taban renk + lekeler + gürültü + yollar
@@ -122,9 +122,91 @@ const Warmap = (() => {
 
   const SIDE_COLOR = { player: 0x35c8f0, ai: 0xff7040 };
 
-  // Harita sınırları (X genişlik, Z derinlik). Su şeridi solda.
+  // Harita sınırları (X genişlik, Z derinlik). Su düzeni araziye göre değişir (kıyı/nehir/kanal).
   const MAP = { minX: -45, maxX: 45, minZ: -34, maxZ: 34, coastX: -29, hqZ: 30 };
-  const isWater = x => x < MAP.coastX;
+  let waterLayout = null; // savaş başında buildWaterLayout ile kurulur
+  const waterAt = (x, z) => waterLayout ? waterLayout.test(x, z) : false;
+
+  // Su düzeni: 'coast' (dalgalı sol kıyı), 'river' (dikey kıvrımlı kanal + yatay köprü),
+  // 'channel' (eğik su bandı + köprü). river/channel haritayı böler ama köprü chokepoint bırakır.
+  // Her düzen tüm z boyunca suya sahip → gemiler iki tarafın bölgesinde de konabilir.
+  let forcedWaterStyle = null; // test için su düzenini sabitle
+  function buildWaterLayout(terrain) {
+    const styles = terrain.waterStyles || ['coast', 'river', 'channel'];
+    const style = forcedWaterStyle || styles[Math.floor(Math.random() * styles.length)];
+    const phase = Math.random() * Math.PI * 2;
+    if (style === 'coast') {
+      const edge = z => MAP.coastX + 6 + Math.sin(z * 0.11 + phase) * 5 + Math.sin(z * 0.33) * 2;
+      return { style, bridge: null, edgeAt: edge, test: (x, z) => x < edge(z) };
+    }
+    const slope = style === 'channel' ? 30 / (MAP.maxZ - MAP.minZ) : 0;
+    const amp = style === 'channel' ? 5 : 9;
+    const base = style === 'channel' ? 0 : -3;
+    const half = style === 'channel' ? 6 : 6.5;
+    const centerAt = z => base + slope * z + Math.sin(z * 0.09 + phase) * amp + Math.sin(z * 0.031) * 3;
+    const bridgeZ = -6 + Math.random() * 12;
+    const bridgeHalfZ = 5;
+    return {
+      style, half, centerAt, bridgeZ,
+      bridge: { x: centerAt(bridgeZ), z: bridgeZ, half },
+      test: (x, z) => Math.abs(x - centerAt(z)) < half && Math.abs(z - bridgeZ) > bridgeHalfZ
+    };
+  }
+
+  // Su-farkında nokta üreticileri (yerleştirme/AI için)
+  function randomDrySpot(xMin, xMax, zMin, zMax) {
+    for (let i = 0; i < 30; i++) {
+      const x = xMin + Math.random() * (xMax - xMin), z = zMin + Math.random() * (zMax - zMin);
+      if (!waterAt(x, z)) return { x, z };
+    }
+    return { x: (xMin + xMax) / 2, z: (zMin + zMax) / 2 };
+  }
+  function randomWetSpot(zMin, zMax) {
+    for (let i = 0; i < 40; i++) {
+      const x = MAP.minX + 2 + Math.random() * (MAP.maxX - MAP.minX - 4), z = zMin + Math.random() * (zMax - zMin);
+      if (waterAt(x, z)) return { x, z };
+    }
+    // Kıyı düzeninde sol şeride düş
+    return { x: MAP.minX + 4, z: (zMin + zMax) / 2 };
+  }
+  // En yakın kuru noktaya doğru kaç birim kaydırmalı (kara birimi steering için)
+  function nearestDryX(x, z, dir) {
+    for (let step = 1; step <= 30; step++) {
+      const cx = x + dir * step;
+      if (cx < MAP.minX || cx > MAP.maxX) break;
+      if (!waterAt(cx, z)) return cx;
+    }
+    return null;
+  }
+
+  // Hareket adımını domain'e göre çöz: kara suya girmez (köprüye hunilenir), gemi suda kalır.
+  function resolveStep(u, ox, oz, nx, nz, spd) {
+    if (u.domain === 'air') return { x: nx, z: nz };
+    if (u.domain === 'sea') {
+      if (waterAt(nx, nz)) return { x: nx, z: nz };
+      if (waterAt(ox, nz)) return { x: ox, z: nz };
+      for (const dir of [-1, 1]) {
+        for (let s = 1; s <= 8; s++) { if (waterAt(ox + dir * s, oz)) return { x: ox + dir * Math.min(spd, s), z: oz }; }
+      }
+      return { x: ox, z: oz };
+    }
+    // ground
+    if (!waterAt(nx, nz)) return { x: nx, z: nz };
+    if (!waterAt(ox, nz)) return { x: ox, z: nz };
+    if (!waterAt(nx, oz)) return { x: nx, z: oz };
+    // Köprüye yönel (chokepoint hunisi)
+    if (waterLayout && waterLayout.bridge) {
+      const b = waterLayout.bridge;
+      const tz = oz + Math.sign(b.z - oz) * Math.min(spd, Math.abs(b.z - oz) || 1);
+      const tx = ox + Math.sign(b.x - ox) * Math.min(spd, Math.abs(b.x - ox) || 1);
+      if (!waterAt(ox, tz)) return { x: ox, z: tz };
+      if (!waterAt(tx, oz)) return { x: tx, z: oz };
+    }
+    const dryR = nearestDryX(ox, oz, 1), dryL = nearestDryX(ox, oz, -1);
+    const target = (dryR != null && (dryL == null || Math.abs(dryR - ox) < Math.abs(dryL - ox))) ? dryR : dryL;
+    if (target != null) return { x: ox + Math.sign(target - ox) * Math.min(spd, Math.abs(target - ox)), z: oz };
+    return { x: ox, z: oz };
+  }
 
   // ==========================================================================
   // Durum
@@ -199,55 +281,83 @@ const Warmap = (() => {
     ground.receiveShadow = true;
     mapGroup.add(ground);
 
-    // Su şeridi (sol)
-    const waterW = MAP.coastX - MAP.minX;
-    const water = new THREE.Mesh(
-      new THREE.PlaneGeometry(waterW, MAP.maxZ - MAP.minZ, 12, 24),
-      new THREE.MeshStandardMaterial({ color: 0x1b4a86, transparent: true, opacity: 0.9, roughness: 0.3, metalness: 0.4 })
-    );
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(MAP.minX + waterW / 2, 0.06, 0);
-    mapGroup.add(water);
+    // Su düzeni (araziye göre kıyı/nehir/kanal) — hücre-tabanlı birleşik mesh
     S = S || {};
+    waterLayout = buildWaterLayout(terrain);
+    if (S) S.water = waterLayout;
+    const step = 2, wv = [], wIdx = [];
+    let vi = 0;
+    for (let cx = MAP.minX; cx < MAP.maxX; cx += step) {
+      for (let cz = MAP.minZ; cz < MAP.maxZ; cz += step) {
+        if (!waterAt(cx + step / 2, cz + step / 2)) continue;
+        const x0 = cx, x1 = cx + step, z0 = cz, z1 = cz + step;
+        wv.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1);
+        wIdx.push(vi, vi + 2, vi + 1, vi, vi + 3, vi + 2);
+        vi += 4;
+      }
+    }
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3));
+    wg.setIndex(wIdx);
+    wg.computeVertexNormals();
+    const water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({
+      color: 0x1b4a86, transparent: true, opacity: 0.9, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide
+    }));
+    water.position.y = 0.06;
+    mapGroup.add(water);
     mapGroup.userData.water = water;
-    mapGroup.userData.waterBase = water.geometry.attributes.position.array.slice();
+    mapGroup.userData.waterBase = wg.attributes.position.array.slice();
 
-    // Kıyı çizgisi
-    const coast = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.5, MAP.maxZ - MAP.minZ),
-      new THREE.MeshBasicMaterial({ color: 0xe7d9a8, transparent: true, opacity: 0.5 })
-    );
-    coast.rotation.x = -Math.PI / 2;
-    coast.position.set(MAP.coastX, 0.07, 0);
-    mapGroup.add(coast);
+    // Köprü/geçit güvertesi (nehir/kanal böler ama buradan geçilir)
+    if (waterLayout.bridge) {
+      const b = waterLayout.bridge;
+      const deck = new THREE.Mesh(
+        new THREE.PlaneGeometry(b.half * 2 + 6, 9),
+        new THREE.MeshStandardMaterial({ color: terrain.id === 'urban' ? 0x3a3d46 : 0x8a7048, roughness: 0.95 })
+      );
+      deck.rotation.x = -Math.PI / 2;
+      deck.position.set(b.x, 0.09, b.z);
+      deck.receiveShadow = true;
+      mapGroup.add(deck);
+      // Geçit vurgusu (parlak kenarlar)
+      const glow = new THREE.Mesh(
+        new THREE.PlaneGeometry(b.half * 2 + 6, 9),
+        new THREE.MeshBasicMaterial({ color: 0xe7d9a8, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false })
+      );
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(b.x, 0.1, b.z);
+      mapGroup.add(glow);
+    }
 
-    // Orta hat (temas hattı)
+    // Orta hat (temas hattı) — tam genişlik
     const mid = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP.maxX - MAP.coastX, 0.35),
+      new THREE.PlaneGeometry(MAP.maxX - MAP.minX, 0.35),
       new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 })
     );
     mid.rotation.x = -Math.PI / 2;
-    mid.position.set((MAP.coastX + MAP.maxX) / 2, 0.05, 0);
+    mid.position.set(0, 0.05, 0);
     mapGroup.add(mid);
 
     // Arazi dekoru
     scatterDecor(terrain);
 
-    // HQ bayrakları
-    buildHQ('player', MAP.hqZ);
-    buildHQ('ai', -MAP.hqZ);
+    // HQ bayrakları (kuru noktaya)
+    const phq = randomDrySpot(-10, 10, MAP.hqZ - 2, MAP.hqZ + 2);
+    const ahq = randomDrySpot(-10, 10, -MAP.hqZ - 2, -MAP.hqZ + 2);
+    buildHQ('player', MAP.hqZ, phq.x);
+    buildHQ('ai', -MAP.hqZ, ahq.x);
 
-    // Yerleştirme bölge göstergeleri
+    // Yerleştirme bölge göstergeleri (tam genişlik; geçerlilik ghost ile hücre bazında gösterilir)
     S.deployDecals = {};
     ['player', 'ai'].forEach(side => {
       const zA = side === 'player' ? 6 : -6;
       const zB = side === 'player' ? MAP.maxZ - 1 : MAP.minZ + 1;
       const zone = new THREE.Mesh(
-        new THREE.PlaneGeometry(MAP.maxX - MAP.coastX - 1, Math.abs(zB - zA)),
+        new THREE.PlaneGeometry(MAP.maxX - MAP.minX - 2, Math.abs(zB - zA)),
         new THREE.MeshBasicMaterial({ color: SIDE_COLOR[side], transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })
       );
       zone.rotation.x = -Math.PI / 2;
-      zone.position.set((MAP.coastX + MAP.maxX) / 2 + 0.5, 0.04, (zA + zB) / 2);
+      zone.position.set(0, 0.04, (zA + zB) / 2);
       mapGroup.add(zone);
       S.deployDecals[side] = zone;
     });
@@ -256,8 +366,9 @@ const Warmap = (() => {
   function scatterDecor(terrain) {
     // Merkez koridoru (temas hattı) boş kalsın ki ordular buluşabilsin
     const inCorridor = z => Math.abs(z) < 5;
-    const put = (mesh, x, z) => { mesh.position.set(x, mesh.position.y, z); mesh.castShadow = true; mesh.receiveShadow = true; mapGroup.add(mesh); };
-    const spotX = () => MAP.coastX + 3 + Math.random() * (MAP.maxX - MAP.coastX - 6);
+    // Su üstüne dekor koyma (nehir/kanal düzenlerinde kuru zemine düşür)
+    const put = (mesh, x, z) => { if (waterAt(x, z)) return; mesh.position.set(x, mesh.position.y, z); mesh.castShadow = true; mesh.receiveShadow = true; mapGroup.add(mesh); };
+    const spotX = () => MAP.minX + 4 + Math.random() * (MAP.maxX - MAP.minX - 8);
     const spotZ = () => MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8);
 
     if (terrain.id === 'urban') {
@@ -291,14 +402,14 @@ const Warmap = (() => {
         const r = new THREE.Mesh(new THREE.ConeGeometry(1.6 + Math.random() * 2, h, 5), rockMat);
         r.position.y = h / 2;
         r.rotation.y = Math.random() * Math.PI;
-        put(r, MAP.coastX + 3 + Math.random() * (MAP.maxX - MAP.coastX - 6), MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8));
+        put(r, spotX(), spotZ());
       }
     } else if (terrain.id === 'desert') {
       const duneMat = new THREE.MeshStandardMaterial({ color: terrain.accent, roughness: 1, flatShading: true });
       for (let i = 0; i < 20; i++) {
         const d = new THREE.Mesh(new THREE.SphereGeometry(2 + Math.random() * 3, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), duneMat);
         d.scale.y = 0.3;
-        put(d, MAP.coastX + 3 + Math.random() * (MAP.maxX - MAP.coastX - 6), MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8));
+        put(d, spotX(), spotZ());
       }
     } else if (terrain.id === 'snow') {
       const iceMat = new THREE.MeshStandardMaterial({ color: 0xbcd0e6, roughness: 0.8, flatShading: true });
@@ -306,12 +417,12 @@ const Warmap = (() => {
         const h = 1 + Math.random() * 2;
         const r = new THREE.Mesh(new THREE.ConeGeometry(1 + Math.random(), h, 5), iceMat);
         r.position.y = h / 2;
-        put(r, MAP.coastX + 3 + Math.random() * (MAP.maxX - MAP.coastX - 6), MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8));
+        put(r, spotX(), spotZ());
       }
     }
   }
 
-  function buildHQ(side, z) {
+  function buildHQ(side, z, hqx = 6) {
     const g = new THREE.Group();
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 5, 6), new THREE.MeshStandardMaterial({ color: 0x888888 }));
     pole.position.y = 2.5;
@@ -329,10 +440,10 @@ const Warmap = (() => {
     ring.position.y = 0.32;
     g.add(ring);
 
-    g.position.set(6, 0, z);
+    g.position.set(hqx, 0, z);
     mapGroup.add(g);
     S.hq = S.hq || {};
-    S.hq[side] = { group: g, flag, pole, pos: new THREE.Vector3(6, 0, z), capture: 0 };
+    S.hq[side] = { group: g, flag, pole, pos: new THREE.Vector3(hqx, 0, z), capture: 0 };
   }
 
   // ==========================================================================
@@ -506,33 +617,59 @@ const Warmap = (() => {
     overheadList.push(mesh);
 
     const heavySpeed = t.heavy ? eventMod('heavySpeed', 1) : 1;
+    // Ulusal doktrin: birlik statlarına dengeli asimetri uygula
+    const dHp = doctrineMul(country, t.cls, t.force, 'hp');
+    const dDmg = doctrineMul(country, t.cls, t.force, 'dmg');
+    const dRange = doctrineMul(country, t.cls, t.force, 'range');
+    const dSpeed = doctrineMul(country, t.cls, t.force, 'speed');
+    const maxHp = t.hp * dHp;
     return {
       id: ++S.unitCounter, type, cls: t.cls, side, force: t.force, mesh, country,
-      hp: t.hp, maxHp: t.hp, dmg: t.dmg, range: t.range * terrainMod('rangeMod') * eventMod('rangeMod'),
-      speed: t.speed * heavySpeed, fire: t.fire, domain: t.domain, alt,
+      doctrine: country ? country.doctrine : null,
+      hp: maxHp, maxHp, dmg: t.dmg * dDmg, range: t.range * terrainMod('rangeMod') * eventMod('rangeMod') * dRange,
+      speed: t.speed * heavySpeed * dSpeed, fire: t.fire, domain: t.domain, alt,
       cost: t.cost, cooldown: Math.random() * t.fire, muzzle: 0,
       target: null, order: null, alive: true, routing: false, dead: false,
       bob: Math.random() * Math.PI * 2, retarget: Math.random() * 0.5
     };
   }
 
+  // Ulusal doktrin çarpanı: mods anahtarı birim sınıfı (cls) veya kuvvet (force) olabilir.
+  function doctrineMul(country, cls, force, stat) {
+    if (!country || !country.doctrine || !country.doctrine.mods) return 1;
+    const m = country.doctrine.mods;
+    let v = 1;
+    if (m[cls] && m[cls][stat] != null) v *= m[cls][stat];
+    // cls===force (ör. jet: cls='air', force='air') çift uygulamayı önle
+    if (force !== cls && m[force] && m[force][stat] != null) v *= m[force][stat];
+    return v;
+  }
+
   function validPlacement(side, x, z, domain) {
     if (x < MAP.minX + 1 || x > MAP.maxX - 1) return false;
     const inZone = side === 'player' ? (z > 6 && z < MAP.maxZ - 1) : (z < -6 && z > MAP.minZ + 1);
     if (!inZone) return false;
-    if (domain === 'sea') return isWater(x);
-    if (domain === 'ground') return !isWater(x);
+    if (domain === 'sea') return waterAt(x, z);
+    if (domain === 'ground') return !waterAt(x, z);
     return true; // air: her yer (kendi bölgesinde)
+  }
+
+  // Doktrin maliyet çarpanı (elit fraksiyon pahalı → az birlik). Bütçe tam sayı kalsın.
+  function effCost(side, force, base) {
+    const c = S.countries && S.countries[side] ? S.countries[side][force] : null;
+    const mul = c && c.doctrine && c.doctrine.costMul ? c.doctrine.costMul : 1;
+    return Math.round(base * mul);
   }
 
   function placeUnit(type, x, z) {
     const t = UNIT_TYPES[type];
     if (!t) return false;
+    const cost = effCost('player', t.force, t.cost);
     const budget = S.budget.player[t.force];
-    if (budget < t.cost) return false;
+    if (budget < cost) return false;
     if (sideCount('player') >= MAX_UNITS_PER_SIDE) { S.cb.onLog('Ordu kapasitesi dolu (maks 14 birlik).', 'system'); return false; }
     if (!validPlacement('player', x, z, t.domain)) return false;
-    S.budget.player[t.force] -= t.cost;
+    S.budget.player[t.force] -= cost;
     const u = makeUnit(type, 'player', x, z);
     S.units.push(u);
     S.cb.onBudget();
@@ -549,7 +686,7 @@ const Warmap = (() => {
       if (d < bd) { bd = d; best = u; }
     });
     if (best) {
-      S.budget.player[best.force] += UNIT_TYPES[best.type].cost;
+      S.budget.player[best.force] += effCost('player', best.force, UNIT_TYPES[best.type].cost);
       best.alive = false;
       rootGroup.remove(best.mesh);
       S.units = S.units.filter(u => u !== best);
@@ -564,7 +701,7 @@ const Warmap = (() => {
   function aiPlace(side = 'ai') {
     ['land', 'air', 'sea'].forEach(force => {
       let budget = S.budget[side][force];
-      const pool = ROSTER[force].filter(tp => budget >= UNIT_TYPES[tp].cost);
+      const pool = ROSTER[force].filter(tp => budget >= effCost(side, force, UNIT_TYPES[tp].cost));
       if (pool.length === 0) return;
 
       // Zorluğa göre ağırlıklar
@@ -581,7 +718,7 @@ const Warmap = (() => {
       let placed = 0;
       let guard = 0;
       while (budget >= 2 && guard++ < 60 && sideCount(side) < MAX_UNITS_PER_SIDE && placed < forceSlots) {
-        const affordable = ROSTER[force].filter(tp => budget >= UNIT_TYPES[tp].cost);
+        const affordable = ROSTER[force].filter(tp => budget >= effCost(side, force, UNIT_TYPES[tp].cost));
         if (affordable.length === 0) break;
         // Slot azken bütçeyi büyük birliğe yatır (az ama güçlü ordu)
         const slotsLeft = Math.min(forceSlots - placed, MAX_UNITS_PER_SIDE - sideCount(side));
@@ -594,16 +731,16 @@ const Warmap = (() => {
           for (const tp of affordable) { r -= (weights[tp] || 1); if (r <= 0) { pick = tp; break; } }
         }
         const t = UNIT_TYPES[pick];
-        budget -= t.cost;
+        budget -= effCost(side, force, t.cost);
         placed++;
 
-        // Formasyon: topçu/AA geride, tank/apc önde. Taraf işaretine göre Z yönü.
+        // Formasyon: topçu/AA geride, tank/apc önde. Taraf işaretine göre Z yönü. Su-farkında.
         const dir = side === 'ai' ? -1 : 1;
         const backish = (pick === 'artillery' || pick === 'aa' || pick === 'frigate');
-        let z = backish ? dir * (MAP.maxZ - 3 - Math.random() * 8) : dir * (8 + Math.random() * 12);
-        let x;
-        if (t.domain === 'sea') x = MAP.minX + 2 + Math.random() * (Math.abs(MAP.minX - MAP.coastX) - 4);
-        else x = MAP.coastX + 2 + Math.random() * (MAP.maxX - MAP.coastX - 4);
+        const zC = backish ? dir * (MAP.maxZ - 3 - Math.random() * 8) : dir * (8 + Math.random() * 12);
+        let x, z = zC;
+        if (t.domain === 'sea') { const s = randomWetSpot(Math.min(zC, dir * 6), Math.max(zC, dir * 6)); x = s.x; z = s.z; }
+        else { const s = randomDrySpot(MAP.minX + 3, MAP.maxX - 3, zC - 3, zC + 3); x = s.x; z = s.z; }
         S.units.push(makeUnit(pick, side, x, z));
       }
       S.budget[side][force] = budget;
@@ -645,6 +782,8 @@ const Warmap = (() => {
     const t = UNIT_TYPES[attacker.type];
     let v = t.vs && t.vs[target.cls] ? t.vs[target.cls] : 1;
     if (t.onlyAir && target.domain !== 'air') v = t.groundVs || 0.35;
+    // Elit görev gücü: her hedefe en az counterAll (taş-kağıt-makas zayıflığı yok)
+    if (attacker.doctrine && attacker.doctrine.counterAll) v = Math.max(v, attacker.doctrine.counterAll);
     return v;
   }
 
@@ -789,8 +928,9 @@ const Warmap = (() => {
       S.sides[side].cp -= ab.cost;
       const baseZ = side === 'player' ? MAP.maxZ - 3 : MAP.minZ + 3;
       for (let i = 0; i < 3; i++) {
-        const x = (worldPt ? worldPt.x : 0) + (i - 1) * 2;
-        S.units.push(makeUnit('infantry', side, Math.max(MAP.coastX + 1, Math.min(MAP.maxX - 1, x)), baseZ));
+        const rx = (worldPt ? worldPt.x : 0) + (i - 1) * 2;
+        const spot = waterAt(rx, baseZ) ? randomDrySpot(MAP.minX + 3, MAP.maxX - 3, baseZ - 2, baseZ + 2) : { x: Math.max(MAP.minX + 1, Math.min(MAP.maxX - 1, rx)), z: baseZ };
+        S.units.push(makeUnit('infantry', side, spot.x, spot.z));
       }
       sfx('deploy');
       S.cb.onLog(`Acil takviye: taze piyade sahaya indi!`, side === 'player' ? 'player' : 'ai');
@@ -997,17 +1137,17 @@ const Warmap = (() => {
       // Hareket
       if (moveGoal && !firing) {
         let gx = moveGoal.x, gz = moveGoal.z;
-        const dx = gx - u.mesh.position.x, dz = gz - u.mesh.position.z;
+        const ox = u.mesh.position.x, oz = u.mesh.position.z;
+        const dx = gx - ox, dz = gz - oz;
         const dist = Math.hypot(dx, dz) || 1;
-        let nx = u.mesh.position.x + (dx / dist) * u.speed * speedMod * dt;
-        let nz = u.mesh.position.z + (dz / dist) * u.speed * speedMod * dt;
-        // Domain kısıtları
-        if (u.domain === 'ground') nx = Math.max(MAP.coastX + 0.5, nx);
-        if (u.domain === 'sea') nx = Math.min(MAP.coastX - 0.5, nx);
+        const spd = u.speed * speedMod * dt;
+        let nx = ox + (dx / dist) * spd;
+        let nz = oz + (dz / dist) * spd;
         nx = Math.max(MAP.minX + 0.5, Math.min(MAP.maxX - 0.5, nx));
         nz = Math.max(MAP.minZ - 4, Math.min(MAP.maxZ + 4, nz));
-        u.mesh.position.x = nx;
-        u.mesh.position.z = nz;
+        const step = resolveStep(u, ox, oz, nx, nz, spd);
+        u.mesh.position.x = step.x;
+        u.mesh.position.z = step.z;
         if (u.domain !== 'air') u.mesh.lookAt(gx, u.mesh.position.y, gz);
       }
     }
@@ -1106,8 +1246,9 @@ const Warmap = (() => {
     const water = mapGroup.userData.water;
     if (water) {
       const pos = water.geometry.attributes.position, base = mapGroup.userData.waterBase;
+      const tw = (S && S.elapsed != null ? S.elapsed : performance.now() / 1000) * 1.6;
       for (let vi = 0; vi < pos.count; vi++) {
-        pos.array[vi * 3 + 2] = Math.sin(S.elapsed * 1.6 + base[vi * 3] * 0.4 + base[vi * 3 + 1] * 0.3) * 0.15;
+        pos.array[vi * 3 + 1] = Math.sin(tw + base[vi * 3] * 0.35 + base[vi * 3 + 2] * 0.28) * 0.16;
       }
       pos.needsUpdate = true;
     }
@@ -1590,8 +1731,18 @@ const Warmap = (() => {
     };
   }
 
+  // Birim kontra özeti (tooltip için): vs çarpanlarından güçlü/zayıf sınıflar
+  function getUnitInfo(type) {
+    const t = UNIT_TYPES[type];
+    if (!t) return null;
+    const strong = [], weak = [];
+    if (t.vs) for (const k in t.vs) { if (t.vs[k] >= 1.3) strong.push(k); else if (t.vs[k] <= 0.7) weak.push(k); }
+    if (t.hitsAir && t.onlyAir) strong.push('air');
+    return { strong, weak, hitsAir: !!t.hitsAir, arc: !!t.arc, domain: t.domain };
+  }
+
   return {
-    runBattle,
+    runBattle, getUnitInfo,
     UNIT_TYPES, ROSTER, ABILITIES, STANCES,
     pickTerrain: () => TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
     maybeEvent: () => Math.random() < 0.45 ? EVENTS[Math.floor(Math.random() * EVENTS.length)] : null,
@@ -1610,6 +1761,19 @@ const Warmap = (() => {
     getArmed: () => S && S.armedAbility,
     set _debugTimeScale(v) { timeScale = v; },
     get _debugTimeScale() { return timeScale; },
+    set _debugWaterStyle(v) { forcedWaterStyle = v; },
+    get _debugWaterStyle() { return waterLayout ? waterLayout.style : null; },
+    _debugWaterViolations: () => {
+      if (!S) return null;
+      let g = 0, se = 0, alive = 0;
+      S.units.forEach(u => {
+        if (!u.alive) return; alive++;
+        const w = waterAt(u.mesh.position.x, u.mesh.position.z);
+        if (u.domain === 'ground' && w) g++;
+        if (u.domain === 'sea' && !w) se++;
+      });
+      return { groundInWater: g, seaOnLand: se, alive };
+    },
     _forceEnd: () => { if (S) endBattle(sideStrength('player') >= sideStrength('ai') ? 'player' : 'ai', false); }
   };
 })();
