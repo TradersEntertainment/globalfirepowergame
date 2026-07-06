@@ -1709,8 +1709,14 @@ async function startBattlePhase() {
     writeLog('ORDUNU KUR: Birlik seç, mavi bölgene yerleştir. Kontra kur, sonra HAZIR de!', 'player');
   }
 
+  // Ülke kimliği: her kuvvetin kartı (bayrak + milli renkler için)
+  const countries = {
+    player: { land: board.player.land, air: board.player.air, sea: board.player.sea },
+    ai: { land: board.ai.land, air: board.ai.air, sea: board.ai.sea }
+  };
+
   const result = await Warmap.runBattle({
-    budgets, terrain, event: battleEvent, difficulty, spectateBoth: spectate
+    budgets, countries, terrain, event: battleEvent, difficulty, spectateBoth: spectate
   }, {
     onLog: writeLog,
     onBanner: showBattleBanner,

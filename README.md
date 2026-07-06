@@ -10,6 +10,16 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v5.1 "Görsel Yükseltme" — Muharebe Sahası Grafik & Ulusal Kimlik
+
+v5.0 mekaniği korunarak muharebe sahnesi profesyonel görsel kaliteye çıkarıldı ve **viral kanca** eklendi: birlikler artık hangi ülkeye ait olduklarını bakışta gösterir — "Türkiye vs Yunanistan savaşı" reklamı rahatça yapılabilir. Motor: `warmap.js` + `scene3d.js` post-processing.
+
+- **Ulusal Kimlik (viral kanca)** — Her birliğin üstünde **direk + dalgalanan ülke bayrağı** (ülkenin gerçek bayrak dokusundan) yüzer, gövdesinde **milli renk aksanı** taşır. Dost/düşman ayrımı için birim altında taraf renkli **taban halkası** (oyuncu camgöbeği / düşman kırmızı-turuncu). Ülke başına milli renk paleti (`countries.js` `colors`).
+- **Detaylı & Büyük "Kahraman" Birlikler** — Basit yer tutucular tamamen yenilendi: taretli gövde + namlulu tank, nişancılı tanksavar, miğferli piyade mangası (biri bayraktar), uzun namlulu obüs, radar + füze rampalı AA, delta kanatlı + alevli jet, dönen ana/kuyruk rotorlu helikopter, İHA, güverte + kuleli fırkateyn, hücumbot. Ekranda **~1.75× ölçek**, taraf başına **sert üst sınır ~14** birlik — okuma ve mikro kolaylaşır.
+- **Post-Processing & Işıklandırma** — **UnrealBloom** parıltısı (iz mermileri/patlamalar/bayraklar parlar), **PCFSoft gölge haritası** (gerçek gölgeler), ACESFilmic ton eşleme + sRGB kodlama. Yönlü anahtar ışık + dolgu ışığıyla yumuşak, kaliteli aydınlatma. Vendor: `EffectComposer/RenderPass/ShaderPass/UnrealBloomPass` (three@0.128 UMD, yerel).
+- **Zengin Arazi & Gökyüzü** — Düz renk zemin yerine **prosedürel canvas doku** (çim/kum/kar/asfalt lekeleri + yollar + gürültü), arazi rengine uyan **degrade gökyüzü kubbesi** + `FogExp2` derinlik sisi. Muharebede uzay fonu (küre/yıldızlar) gizlenir; savaş bitince geri gelir.
+- **Birim Geri Bildirimi & Efektler** — Birim üstü **can barı** (hasar alınca belirir, kameraya döner), seçim halkası, namlu ateşi flaşı, çok katmanlı patlama + duman + yerde **scorch decal**. Kamera daha yakın ve kuşbakışına yakın açıyla savaşı okunur kılar.
+
 ## v5.0 "Muharebe Sahası" — TABS Tarzı Savaş Haritası
 
 Savaş başlayınca **sahne komple bir muharebe haritasına dönüşür** (kart masası kaybolur), ordular gerçek zamanlı çarpışır ve oyuncu birliklerini **RTS gibi yönlendirir**. Motor: yeni `warmap.js`.

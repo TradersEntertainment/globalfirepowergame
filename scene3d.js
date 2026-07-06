@@ -31,7 +31,10 @@ const Scene3D = (() => {
   let hoverSlot = null;
   let externalTicker = null; // gerçek zamanlı savaş simülasyonu her karede çağrılır
   let tableGroup = null;     // masa öğeleri (muharebe sahasında gizlenir)
+  let spaceGroup = null;     // uzay fonu (küre + yıldızlar + toz) — muharebede gizlenir
   let cameraOverride = false; // true iken kamerayı dış motor (warmap) sürer
+  let composer = null, bloomPass = null; // post-processing (bloom)
+  let keyLightRef = null;
 
   // Kamera hedef durumu
   const camTarget = { pos: new THREE.Vector3(0, 26, 26), look: new THREE.Vector3(0, 0, 0) };
@@ -154,6 +157,7 @@ const Scene3D = (() => {
   // ---- Bayrak Önbelleği -----------------------------------------------------
   // flags/*.svg dosyalarını Image olarak yükler; kart dokularında çizilir.
   const FlagCache = {};
+  const FlagTexCache = {};
   function preloadFlags() {
     const sources = [];
     if (typeof COUNTRIES_DB !== 'undefined') sources.push(...COUNTRIES_DB);
@@ -165,6 +169,37 @@ const Scene3D = (() => {
         FlagCache[entry.iso] = img;
       }
     });
+  }
+
+  // warmap birlik bayrakları için CanvasTexture (yüklü SVG'den bir kez çizilip önbelleğe alınır).
+  function getFlagTexture(iso) {
+    if (!iso) return null;
+    if (FlagTexCache[iso]) return FlagTexCache[iso];
+    const W = 128, H = 86;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#20242c';
+    ctx.fillRect(0, 0, W, H);
+    const img = FlagCache[iso];
+    const tex = new THREE.CanvasTexture(cv);
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, 0, 0, W, H);
+      tex.needsUpdate = true;
+    } else if (img) {
+      // Henüz yüklenmediyse yüklenince dokuyu tazele
+      img.addEventListener('load', () => {
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(img, 0, 0, W, H);
+        tex.needsUpdate = true;
+      }, { once: true });
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, W, H);
+    if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
+    FlagTexCache[iso] = tex;
+    return tex;
   }
 
   // ---- Kart Dokuları ---------------------------------------------------------
@@ -410,11 +445,27 @@ const Scene3D = (() => {
   function buildEnvironment() {
     scene.fog = new THREE.FogExp2(0x04060c, 0.016);
 
-    // Işıklar
-    scene.add(new THREE.AmbientLight(0x40506a, 0.9));
-    const keyLight = new THREE.DirectionalLight(0xdfeaff, 0.85);
-    keyLight.position.set(6, 22, 10);
+    // Işıklar (yumuşak, kaliteli aydınlatma + gölge)
+    scene.add(new THREE.AmbientLight(0x40506a, 0.72));
+    const keyLight = new THREE.DirectionalLight(0xfff2dc, 1.15);
+    keyLight.position.set(28, 46, 22);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 1;
+    keyLight.shadow.camera.far = 160;
+    keyLight.shadow.camera.left = -60;
+    keyLight.shadow.camera.right = 60;
+    keyLight.shadow.camera.top = 60;
+    keyLight.shadow.camera.bottom = -60;
+    keyLight.shadow.bias = -0.0004;
+    keyLight.shadow.normalBias = 0.03;
     scene.add(keyLight);
+    keyLightRef = keyLight;
+
+    // Dolgu ışığı (karşı yön, gölgesiz — kontrastı yumuşatır)
+    const fillLight = new THREE.DirectionalLight(0x8aa0c8, 0.35);
+    fillLight.position.set(-20, 18, -14);
+    scene.add(fillLight);
 
     const playerGlow = new THREE.PointLight(0x00b4d8, 0.9, 45);
     playerGlow.position.set(0, 7, 14);
@@ -474,7 +525,10 @@ const Scene3D = (() => {
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
     const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x9fd8ff, size: 0.5, transparent: true, opacity: 0.8, sizeAttenuation: true }));
-    scene.add(stars);
+    // Uzay fonu grubu (muharebede topluca gizlenir)
+    spaceGroup = new THREE.Group();
+    scene.add(spaceGroup);
+    spaceGroup.add(stars);
 
     // Dünya hologramı (arka merkez) — gerçek kıta haritası dokusuyla
     const earthGroup = new THREE.Group();
@@ -500,7 +554,7 @@ const Scene3D = (() => {
     earthTilt.rotation.x = 0.62;
     earthGroup.rotation.y = -2.1; // Avrasya bölgesi kameraya dönük başlasın
     earthTilt.add(earthGroup);
-    scene.add(earthTilt);
+    spaceGroup.add(earthTilt);
     transientEnv.earth = earthGroup;
     transientEnv.earthRadius = 10;
 
@@ -515,7 +569,7 @@ const Scene3D = (() => {
     }
     dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
     const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0x3fb4d8, size: 0.09, transparent: true, opacity: 0.5 }));
-    scene.add(dust);
+    spaceGroup.add(dust);
     transientEnv.dust = dust;
   }
 
@@ -1378,7 +1432,27 @@ const Scene3D = (() => {
       if (shakeAmp < 0.001) shakeAmp = 0;
     }
 
-    renderer.render(scene, camera);
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
+  }
+
+  // ---- Post-processing (Bloom) ------------------------------------------------
+  function setupComposer() {
+    try {
+      if (!THREE.EffectComposer || !THREE.UnrealBloomPass) return;
+      composer = new THREE.EffectComposer(renderer);
+      composer.addPass(new THREE.RenderPass(scene, camera));
+      bloomPass = new THREE.UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.62,  // güç (strength)
+        0.5,   // yarıçap (radius)
+        0.82   // eşik (threshold) — yalnız parlak yerler ışısın
+      );
+      composer.addPass(bloomPass);
+    } catch (e) {
+      console.warn('Bloom kurulamadı, düz render kullanılacak:', e);
+      composer = null; bloomPass = null;
+    }
   }
 
   // ---- Init ------------------------------------------------------------------
@@ -1395,6 +1469,12 @@ const Scene3D = (() => {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x04060c);
+    // Kaliteli render: sRGB çıkış + sinematik ton eşleme + yumuşak gölgeler
+    if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.06;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
@@ -1403,11 +1483,14 @@ const Scene3D = (() => {
 
     buildEnvironment();
     buildPlatforms();
+    setupComposer();
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+      if (bloomPass) bloomPass.setSize(window.innerWidth, window.innerHeight);
     });
 
     renderer.domElement.addEventListener('pointermove', e => {
@@ -1461,11 +1544,16 @@ const Scene3D = (() => {
     // Muharebe sahası: masayı gizle/göster, kamerayı devret, zemine ışın at
     setTableVisible: v => {
       if (tableGroup) tableGroup.visible = v;
+      if (spaceGroup) spaceGroup.visible = v; // muharebede uzay fonu gizlenir
       ['player', 'ai'].forEach(o => ['land', 'air', 'sea'].forEach(f => {
         const cm = cardMeshes[o][f];
         if (cm) cm.visible = v;
       }));
+      // Muharebede sisi kapat (warmap kendi sisini kurar), masaya dönünce geri aç
+      scene.fog = v ? new THREE.FogExp2(0x04060c, 0.016) : null;
     },
+    setFog: (color, density) => { scene.fog = density > 0 ? new THREE.FogExp2(color, density) : null; },
+    getFlagTexture: iso => getFlagTexture(iso),
     overrideCamera: v => { cameraOverride = v; },
     setCamera: (px, py, pz, lx, ly, lz) => {
       camera.position.set(px, py, pz);

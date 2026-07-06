@@ -26,12 +26,68 @@ const Warmap = (() => {
   };
 
   const TERRAINS = [
-    { id: 'desert',   name: 'ÇÖL',    icon: '🏜', ground: 0x9a7b45, accent: 0xc9a25e, desc: 'Açık arazi: Taarruz güçlü, siper az.', assaultBonus: 1.12 },
-    { id: 'forest',   name: 'ORMAN',  icon: '🌲', ground: 0x2f4a24, accent: 0x3f6130, desc: 'Sık orman: Savunma güçlü, hava zayıf.', defenseBonus: 1.15, airMod: 0.9, cover: true },
-    { id: 'mountain', name: 'DAĞ',    icon: '⛰', ground: 0x59595f, accent: 0x74747c, desc: 'Kayalık: Zırh yavaş, hava üstünlüğü değerli.', landMod: 0.9, airMod: 1.1 },
-    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xd7e0ea, accent: 0xeef4fb, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88 },
-    { id: 'urban',    name: 'ŞEHİR',  icon: '🏙', ground: 0x50535c, accent: 0x6b6f7a, desc: 'Kent savaşı: Piyade kral, tanklar riskli.', infBonus: 1.2, tankMod: 0.85, cover: true }
+    { id: 'desert',   name: 'ÇÖL',    icon: '🏜', ground: 0xb89258, accent: 0xd4b072, sky: 0xd8c69a, horizon: 0x8a7048, desc: 'Açık arazi: Taarruz güçlü, siper az.', assaultBonus: 1.12 },
+    { id: 'forest',   name: 'ORMAN',  icon: '🌲', ground: 0x3c5a2c, accent: 0x4f7038, sky: 0x9fc4e0, horizon: 0x314a40, desc: 'Sık orman: Savunma güçlü, hava zayıf.', defenseBonus: 1.15, airMod: 0.9, cover: true },
+    { id: 'mountain', name: 'DAĞ',    icon: '⛰', ground: 0x6a6a70, accent: 0x84848c, sky: 0xaebccb, horizon: 0x4a4a54, desc: 'Kayalık: Zırh yavaş, hava üstünlüğü değerli.', landMod: 0.9, airMod: 1.1 },
+    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xdde6ef, accent: 0xf2f7fc, sky: 0xcdd8e6, horizon: 0x9fb0c4, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88 },
+    { id: 'urban',    name: 'ŞEHİR',  icon: '🏙', ground: 0x646771, accent: 0x7c808b, sky: 0x8f9db0, horizon: 0x3e414a, desc: 'Kent savaşı: Piyade kral, tanklar riskli.', infBonus: 1.2, tankMod: 0.85, cover: true }
   ];
+
+  // Prosedürel zemin dokusu: taban renk + lekeler + gürültü + yollar
+  function buildGroundTexture(terrain) {
+    const W = 1024, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const base = '#' + terrain.ground.toString(16).padStart(6, '0');
+    const acc = '#' + terrain.accent.toString(16).padStart(6, '0');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, W, H);
+
+    // Yamalar (aksan tonunda, yumuşak)
+    for (let i = 0; i < 900; i++) {
+      const r = 8 + Math.random() * 46;
+      ctx.globalAlpha = 0.04 + Math.random() * 0.12;
+      ctx.fillStyle = Math.random() < 0.5 ? acc : base;
+      ctx.beginPath();
+      ctx.ellipse(Math.random() * W, Math.random() * H, r, r * (0.5 + Math.random()), Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // İnce gürültü noktacıkları
+    for (let i = 0; i < 9000; i++) {
+      ctx.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
+      ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+    }
+
+    // Toprak yollar (şehir/çöl/dağ) veya patika
+    if (terrain.id !== 'snow') {
+      ctx.strokeStyle = terrain.id === 'urban' ? 'rgba(30,32,38,0.55)' : 'rgba(90,72,45,0.4)';
+      ctx.lineWidth = terrain.id === 'urban' ? 26 : 34;
+      ctx.lineCap = 'round';
+      for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        let x = Math.random() * W, y = 0;
+        ctx.moveTo(x, y);
+        while (y < H) { x += (Math.random() - 0.5) * 120; y += 90; ctx.lineTo(Math.max(0, Math.min(W, x)), y); }
+        ctx.stroke();
+      }
+      if (terrain.id === 'urban') {
+        // Şehir grid yolları
+        ctx.strokeStyle = 'rgba(25,27,32,0.5)'; ctx.lineWidth = 16;
+        for (let gx = 128; gx < W; gx += 170) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+        for (let gy = 128; gy < H; gy += 170) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(cv);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
+    tex.anisotropy = 4;
+    if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  }
 
   const EVENTS = [
     { id: 'rain',  name: 'ŞİDDETLİ YAĞMUR', icon: '🌧', desc: 'Hava birlikleri -%25.', airMod: 0.75 },
@@ -83,8 +139,12 @@ const Warmap = (() => {
   let listenersBound = false;
   let timeScale = 1;
 
-  // Kamera durumu
-  const cam = { cx: 0, cz: 4, dist: 40, height: 38, targetDist: 40, targetHeight: 38 };
+  // Kamera durumu (daha yakın, sinematik)
+  const cam = { cx: 0, cz: 4, dist: 30, height: 25, targetDist: 30, targetHeight: 25 };
+
+  const UNIT_SCALE = 1.75;       // birlikler ekranda büyük görünsün
+  const MAX_UNITS_PER_SIDE = 14; // az sayıda "kahraman" birlik
+  const overheadList = [];       // billboard'lanacak baş-üstü (bayrak+can barı) grupları
   const pan = { up: false, down: false, left: false, right: false };
 
   // Seçim / emir
@@ -116,19 +176,28 @@ const Warmap = (() => {
     mapGroup = new THREE.Group();
     rootGroup.add(mapGroup);
 
-    // Zemin
-    const groundMat = new THREE.MeshStandardMaterial({ color: terrain.ground, roughness: 0.96, metalness: 0.02 });
+    // Gökyüzü kubbesi (arazi tonuna uyan degrade) + derinlik sisi
+    const skyColor = terrain.sky || 0x9fb8d8;
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(200, 24, 16),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        uniforms: { top: { value: new THREE.Color(skyColor) }, bot: { value: new THREE.Color(terrain.horizon || 0x2a3446) } },
+        vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 bot; void main(){ float h = clamp((normalize(vP).y+0.15)/0.9, 0.0, 1.0); gl_FragColor = vec4(mix(bot, top, h), 1.0); }'
+      })
+    );
+    mapGroup.add(sky);
+    Scene3D.setFog(terrain.horizon || 0x2a3446, 0.006);
+
+    // Zemin — prosedürel doku (çim/kum/asfalt lekeleri + yollar + gürültü)
+    const groundTex = buildGroundTexture(terrain);
+    const groundMat = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.98, metalness: 0.0 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP.maxX - MAP.minX, MAP.maxZ - MAP.minZ, 1, 1), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.set((MAP.minX + MAP.maxX) / 2, 0, 0);
+    ground.receiveShadow = true;
     mapGroup.add(ground);
-
-    // İzgara çizgileri (hafif)
-    const gridEdge = new THREE.GridHelper(90, 30, 0x000000, 0x000000);
-    gridEdge.position.set((MAP.minX + MAP.maxX) / 2, 0.02, 0);
-    gridEdge.material.transparent = true;
-    gridEdge.material.opacity = 0.08;
-    mapGroup.add(gridEdge);
 
     // Su şeridi (sol)
     const waterW = MAP.coastX - MAP.minX;
@@ -185,25 +254,35 @@ const Warmap = (() => {
   }
 
   function scatterDecor(terrain) {
-    const rng = () => (Math.random() - 0.5);
-    const put = (mesh, x, z) => { mesh.position.set(x, mesh.position.y, z); mapGroup.add(mesh); };
+    // Merkez koridoru (temas hattı) boş kalsın ki ordular buluşabilsin
+    const inCorridor = z => Math.abs(z) < 5;
+    const put = (mesh, x, z) => { mesh.position.set(x, mesh.position.y, z); mesh.castShadow = true; mesh.receiveShadow = true; mapGroup.add(mesh); };
+    const spotX = () => MAP.coastX + 3 + Math.random() * (MAP.maxX - MAP.coastX - 6);
+    const spotZ = () => MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8);
 
-    if (terrain.id === 'forest' || terrain.id === 'urban') {
-      const treeMat = new THREE.MeshStandardMaterial({ color: terrain.id === 'forest' ? 0x24401c : 0x3a3d45, roughness: 0.9, flatShading: true });
-      for (let i = 0; i < 70; i++) {
-        const x = MAP.coastX + 2 + Math.random() * (MAP.maxX - MAP.coastX - 4);
-        const z = MAP.minZ + 3 + Math.random() * (MAP.maxZ - MAP.minZ - 6);
-        if (terrain.id === 'urban') {
-          const h = 1.5 + Math.random() * 4;
-          const b = new THREE.Mesh(new THREE.BoxGeometry(1.4 + Math.random(), h, 1.4 + Math.random()), treeMat);
-          b.position.y = h / 2;
-          put(b, x, z);
-        } else {
-          const h = 1.8 + Math.random() * 1.6;
-          const t = new THREE.Mesh(new THREE.ConeGeometry(0.7, h, 6), treeMat);
-          t.position.y = h / 2;
-          put(t, x, z);
-        }
+    if (terrain.id === 'urban') {
+      // Şehir: az sayıda, koyu, gölge veren bloklar (parlamasın diye koyu ton)
+      const shades = [0x2b2e35, 0x33363e, 0x25282f, 0x3a3d46];
+      for (let i = 0; i < 34; i++) {
+        const z = spotZ(); if (inCorridor(z)) continue;
+        const h = 1.4 + Math.random() * 3.2;
+        const mat = new THREE.MeshStandardMaterial({ color: shades[i % shades.length], roughness: 0.85, metalness: 0.05, flatShading: true });
+        const b = new THREE.Mesh(new THREE.BoxGeometry(1.3 + Math.random() * 1.2, h, 1.3 + Math.random() * 1.2), mat);
+        b.position.y = h / 2;
+        put(b, spotX(), z);
+      }
+    } else if (terrain.id === 'forest') {
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a18, roughness: 1 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x1e3a16, roughness: 0.95, flatShading: true });
+      for (let i = 0; i < 60; i++) {
+        const z = spotZ(); if (inCorridor(z) && Math.random() < 0.7) continue;
+        const x = spotX();
+        const th = 0.6 + Math.random() * 0.5;
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, th, 5), trunkMat);
+        trunk.position.y = th / 2; put(trunk, x, z);
+        const ch = 1.8 + Math.random() * 1.4;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.75, ch, 7), leafMat);
+        cone.position.y = th + ch / 2 - 0.2; put(cone, x, z);
       }
     } else if (terrain.id === 'mountain') {
       const rockMat = new THREE.MeshStandardMaterial({ color: terrain.accent, roughness: 1, flatShading: true });
@@ -257,96 +336,119 @@ const Warmap = (() => {
   }
 
   // ==========================================================================
-  // Birlik Meshleri
+  // Birlik Meshleri — detaylı modeller, milli renk aksanı, gölge
   // ==========================================================================
-  function buildUnitMesh(type, side) {
-    const t = UNIT_TYPES[type];
-    const color = SIDE_COLOR[side];
-    const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.4, roughness: 0.55, emissive: color, emissiveIntensity: 0.18 });
+  function enableShadow(obj) { obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); }
+
+  // country: { colors:[primary,secondary], iso } — milli renkler gövde aksanında
+  function buildUnitMesh(type, side, country) {
     const g = new THREE.Group();
-    g.userData.mat = mat;
+    const nat = (country && country.colors) ? country.colors[0] : (side === 'player' ? 0x2a6f97 : 0x8a3b2a);
+    const nat2 = (country && country.colors) ? country.colors[1] : 0xdddddd;
+
+    // Nötr askeri gövde (arazi bağımsız koyu zeytin/gri) + milli aksan
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x3a4033, metalness: 0.25, roughness: 0.7 });
+    const accentMat = new THREE.MeshStandardMaterial({ color: nat, metalness: 0.3, roughness: 0.55 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x22261e, metalness: 0.3, roughness: 0.6 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: nat2, metalness: 0.3, roughness: 0.5 });
+    g.userData.mat = accentMat; // hasar tonlaması aksana uygulanır
+
+    const M = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); g.add(m); return m; };
 
     if (type === 'infantry') {
-      for (let i = 0; i < 5; i++) {
-        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.42, 6), mat);
-        s.position.set((i - 2) * 0.34, 0.24, (i % 2) * 0.28);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), mat);
-        head.position.set((i - 2) * 0.34, 0.5, (i % 2) * 0.28);
-        g.add(s, head);
+      // 4 asker + bayraktar
+      for (let i = 0; i < 4; i++) {
+        const bx = (i - 1.5) * 0.32, bz = (i % 2) * 0.3 - 0.15;
+        M(new THREE.CylinderGeometry(0.1, 0.13, 0.44, 8), hullMat, bx, 0.26, bz);      // gövde
+        M(new THREE.SphereGeometry(0.11, 8, 6), accentMat, bx, 0.54, bz);              // miğfer (milli)
+        const rifle = M(new THREE.BoxGeometry(0.05, 0.05, 0.4), darkMat, bx + 0.12, 0.32, bz + 0.1);
+        rifle.rotation.x = 0.3;
       }
     } else if (type === 'at') {
-      for (let i = 0; i < 3; i++) {
-        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.46, 6), mat);
-        s.position.set((i - 1) * 0.4, 0.26, 0);
-        g.add(s);
-        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 6), mat);
-        tube.rotation.z = Math.PI / 2;
-        tube.position.set((i - 1) * 0.4, 0.5, 0.2);
-        g.add(tube);
+      for (let i = 0; i < 2; i++) {
+        const bx = (i - 0.5) * 0.5;
+        M(new THREE.CylinderGeometry(0.11, 0.14, 0.46, 8), hullMat, bx, 0.27, 0);
+        M(new THREE.SphereGeometry(0.11, 8, 6), accentMat, bx, 0.56, 0);
+        const tube = M(new THREE.CylinderGeometry(0.06, 0.07, 0.85, 8), darkMat, bx, 0.55, 0.25);
+        tube.rotation.x = Math.PI / 2 - 0.2;
       }
     } else if (type === 'apc') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.34, 0.95), mat);
-      hull.position.y = 0.28;
-      const cup = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.24), mat);
-      cup.position.y = 0.5;
-      g.add(hull, cup);
+      const hull = M(new THREE.BoxGeometry(0.66, 0.36, 1.05), hullMat, 0, 0.32, 0);
+      // eğimli ön zırh
+      const nose = M(new THREE.BoxGeometry(0.66, 0.3, 0.3), hullMat, 0, 0.26, 0.6); nose.rotation.x = -0.4;
+      M(new THREE.BoxGeometry(0.34, 0.18, 0.34), accentMat, 0, 0.56, -0.1);  // taret (milli)
+      M(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 6), darkMat, 0, 0.58, 0.2).rotation.x = Math.PI / 2;
+      wheels(g, darkMat, 0.36, [-0.4, 0, 0.4]);
     } else if (type === 'tank') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.28, 1.05), mat);
-      hull.position.y = 0.24;
-      const turret = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.22, 0.5), mat);
-      turret.position.y = 0.46;
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 6), mat);
-      barrel.rotation.x = Math.PI / 2;
-      barrel.position.set(0, 0.46, 0.6);
-      g.add(hull, turret, barrel);
+      M(new THREE.BoxGeometry(0.82, 0.3, 1.2), hullMat, 0, 0.32, 0);            // gövde
+      M(new THREE.BoxGeometry(0.86, 0.14, 1.26), darkMat, 0, 0.18, 0);         // palet kaidesi
+      const turret = M(new THREE.BoxGeometry(0.52, 0.26, 0.62), accentMat, 0, 0.56, -0.05); // taret (milli)
+      const mantlet = M(new THREE.BoxGeometry(0.2, 0.16, 0.2), darkMat, 0, 0.56, 0.28);
+      const barrel = M(new THREE.CylinderGeometry(0.055, 0.06, 0.95, 8), darkMat, 0, 0.56, 0.72); barrel.rotation.x = Math.PI / 2;
+      g.userData.turret = turret;
     } else if (type === 'artillery') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.9), mat);
-      hull.position.y = 0.26;
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 6), mat);
-      barrel.rotation.x = Math.PI / 3;
-      barrel.position.set(0, 0.55, 0.2);
-      g.add(hull, barrel);
+      M(new THREE.BoxGeometry(0.66, 0.32, 1.0), hullMat, 0, 0.3, 0);
+      M(new THREE.BoxGeometry(0.3, 0.2, 0.34), accentMat, 0, 0.52, -0.15);
+      const barrel = M(new THREE.CylinderGeometry(0.07, 0.08, 1.5, 8), darkMat, 0, 0.7, 0.25); barrel.rotation.x = Math.PI / 3;
+      wheels(g, darkMat, 0.34, [-0.35, 0.1, 0.4]);
+      g.userData.barrel = barrel;
     } else if (type === 'aa') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.3, 0.8), mat);
-      hull.position.y = 0.26;
-      const radar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.3), mat);
-      radar.position.y = 0.56;
-      radar.rotation.z = 0.4;
-      g.add(hull, radar);
-      g.userData.radar = radar;
+      M(new THREE.BoxGeometry(0.62, 0.34, 0.9), hullMat, 0, 0.3, 0);
+      const rot = M(new THREE.BoxGeometry(0.36, 0.2, 0.36), accentMat, 0, 0.56, 0);   // dönen kule
+      // füze rampası
+      M(new THREE.BoxGeometry(0.1, 0.1, 0.5), darkMat, -0.14, 0.66, 0.1).rotation.x = -0.5;
+      M(new THREE.BoxGeometry(0.1, 0.1, 0.5), darkMat, 0.14, 0.66, 0.1).rotation.x = -0.5;
+      const radar = M(new THREE.BoxGeometry(0.44, 0.06, 0.28), trimMat, 0, 0.76, -0.1); radar.rotation.z = 0.35;
+      wheels(g, darkMat, 0.34, [-0.35, 0.05, 0.4]);
+      g.userData.radar = radar; g.userData.turret = rot;
     } else if (type === 'fighter') {
-      const body = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 6), mat);
-      body.rotation.x = -Math.PI / 2;
-      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.05, 0.34), mat);
-      wing.position.z = -0.1;
-      g.add(body, wing);
+      const body = M(new THREE.ConeGeometry(0.18, 1.4, 8), accentMat, 0, 0, 0); body.rotation.x = -Math.PI / 2;
+      const wing = M(new THREE.BoxGeometry(1.3, 0.05, 0.42), hullMat, 0, 0, -0.15);  // delta kanat
+      wing.geometry.translate(0, 0, 0);
+      M(new THREE.BoxGeometry(0.06, 0.3, 0.3), accentMat, 0, 0.15, -0.5);            // dikey kanat
+      const flame = M(new THREE.ConeGeometry(0.1, 0.5, 6), new THREE.MeshBasicMaterial({ color: 0xff9030 }), 0, 0, -0.75); flame.rotation.x = Math.PI / 2;
+      g.userData.flame = flame;
     } else if (type === 'helicopter') {
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.9, 8), mat);
-      body.rotation.x = Math.PI / 2;
-      const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 6), mat);
-      tail.rotation.x = Math.PI / 2;
-      tail.position.z = -0.7;
-      const rotor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.03, 0.1), new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 }));
-      rotor.position.y = 0.3;
-      g.add(body, tail, rotor);
-      g.userData.rotor = rotor;
+      const body = M(new THREE.CylinderGeometry(0.22, 0.16, 1.0, 10), accentMat, 0, 0, 0); body.rotation.x = Math.PI / 2;
+      M(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshStandardMaterial({ color: 0x111318, metalness: 0.6, roughness: 0.2 }), 0, 0.02, 0.42); // kokpit camı
+      const tail = M(new THREE.CylinderGeometry(0.06, 0.05, 0.95, 6), hullMat, 0, 0.05, -0.7); tail.rotation.x = Math.PI / 2;
+      const rotor = M(new THREE.BoxGeometry(1.9, 0.03, 0.12), new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.55 }), 0, 0.34, 0);
+      const trotor = M(new THREE.BoxGeometry(0.05, 0.5, 0.03), new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 }), 0, 0.12, -1.1);
+      // paten iniş takımı
+      M(new THREE.BoxGeometry(0.04, 0.04, 0.7), darkMat, -0.2, -0.24, 0);
+      M(new THREE.BoxGeometry(0.04, 0.04, 0.7), darkMat, 0.2, -0.24, 0);
+      g.userData.rotor = rotor; g.userData.trotor = trotor;
     } else if (type === 'drone') {
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.5), mat);
-      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.03, 0.14), mat);
-      g.add(body, wing);
+      M(new THREE.BoxGeometry(0.24, 0.12, 0.6), accentMat, 0, 0, 0);
+      M(new THREE.BoxGeometry(1.2, 0.03, 0.16), hullMat, 0, 0.02, 0);      // düz kanat
+      M(new THREE.BoxGeometry(0.3, 0.12, 0.04), hullMat, 0, 0.02, -0.28);  // kuyruk
     } else if (type === 'frigate') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.28, 2.0), mat);
-      hull.position.y = 0.16;
-      const tower = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.4, 0.5), mat);
-      tower.position.y = 0.5;
-      g.add(hull, tower);
+      const hull = M(new THREE.BoxGeometry(0.7, 0.32, 2.3), hullMat, 0, 0.2, 0);
+      const bow = M(new THREE.BoxGeometry(0.7, 0.32, 0.5), hullMat, 0, 0.2, 1.2); bow.rotation.x = 0.3;
+      M(new THREE.BoxGeometry(0.4, 0.5, 0.7), accentMat, 0, 0.6, -0.1);   // köprüüstü (milli)
+      M(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 6), trimMat, 0, 1.0, -0.1);  // direk
+      const gun = M(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 6), darkMat, 0, 0.42, 0.85); gun.rotation.x = Math.PI / 2;
     } else if (type === 'gunboat') {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 1.1), mat);
-      hull.position.y = 0.14;
-      g.add(hull);
+      M(new THREE.BoxGeometry(0.46, 0.24, 1.2), hullMat, 0, 0.16, 0);
+      M(new THREE.BoxGeometry(0.46, 0.2, 0.3), hullMat, 0, 0.14, 0.7).rotation.x = 0.4;
+      M(new THREE.BoxGeometry(0.24, 0.22, 0.34), accentMat, 0, 0.4, -0.1);
     }
 
+    enableShadow(g);
     return g;
+  }
+
+  // Basit tekerlek/palet dizisi
+  function wheels(g, mat, spanX, zs) {
+    zs.forEach(z => {
+      [-1, 1].forEach(sx => {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.1, 10), mat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(sx * spanX, 0.13, z);
+        w.castShadow = true;
+        g.add(w);
+      });
+    });
   }
 
   // ==========================================================================
@@ -354,18 +456,61 @@ const Warmap = (() => {
   // ==========================================================================
   function makeUnit(type, side, x, z) {
     const t = UNIT_TYPES[type];
-    const mesh = buildUnitMesh(type, side);
+    const country = S.countries && S.countries[side] ? S.countries[side][t.force] : null;
+
+    const mesh = buildUnitMesh(type, side, country);
+    mesh.scale.setScalar(UNIT_SCALE);
     const alt = t.domain === 'air' ? t.alt : 0;
     mesh.position.set(x, alt, z);
     mesh.rotation.y = side === 'player' ? Math.PI : 0;
     rootGroup.add(mesh);
 
+    // Dost/düşman taban halkası (zeminde parlak, bloom yakalar)
+    const ringY = 0.06;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.9 * UNIT_SCALE, 1.15 * UNIT_SCALE, 24),
+      new THREE.MeshBasicMaterial({ color: SIDE_COLOR[side], transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = ringY - alt;
+    mesh.add(ring);
+    mesh.userData.baseRing = ring;
+
+    // Baş-üstü: bayrak direği + ülke bayrağı (Sprite, kameraya döner) + can barı
+    const overhead = new THREE.Group();
+    const topY = (t.domain === 'air' ? 1.0 : 1.5);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), new THREE.MeshBasicMaterial({ color: 0xdddddd }));
+    pole.position.y = topY + 0.45;
+    mesh.add(pole);
+    if (country && country.iso) {
+      const flagTex = Scene3D.getFlagTexture(country.iso);
+      if (flagTex) {
+        const flag = new THREE.Sprite(new THREE.SpriteMaterial({ map: flagTex, depthTest: true }));
+        flag.scale.set(0.95, 0.62, 1);
+        flag.position.set(0.5, topY + 0.75, 0);
+        mesh.add(flag);
+      }
+    }
+    // Can barı (arka + ön), kameraya döndürülür; hasar alınca görünür
+    const hpGroup = new THREE.Group();
+    hpGroup.position.y = topY + 0.15;
+    const hpBg = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.14), new THREE.MeshBasicMaterial({ color: 0x220000, transparent: true, opacity: 0.85, depthTest: false }));
+    const hpFg = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.12), new THREE.MeshBasicMaterial({ color: 0x39ff6a, depthTest: false }));
+    hpFg.position.z = 0.001;
+    hpGroup.add(hpBg, hpGroup.userData_fg = hpFg);
+    hpGroup.visible = false;
+    hpGroup.renderOrder = 999;
+    mesh.add(hpGroup);
+    mesh.userData.hpGroup = hpGroup;
+    mesh.userData.hpFg = hpFg;
+    overheadList.push(mesh);
+
     const heavySpeed = t.heavy ? eventMod('heavySpeed', 1) : 1;
     return {
-      id: ++S.unitCounter, type, cls: t.cls, side, force: t.force, mesh,
+      id: ++S.unitCounter, type, cls: t.cls, side, force: t.force, mesh, country,
       hp: t.hp, maxHp: t.hp, dmg: t.dmg, range: t.range * terrainMod('rangeMod') * eventMod('rangeMod'),
       speed: t.speed * heavySpeed, fire: t.fire, domain: t.domain, alt,
-      cost: t.cost, cooldown: Math.random() * t.fire,
+      cost: t.cost, cooldown: Math.random() * t.fire, muzzle: 0,
       target: null, order: null, alive: true, routing: false, dead: false,
       bob: Math.random() * Math.PI * 2, retarget: Math.random() * 0.5
     };
@@ -385,6 +530,7 @@ const Warmap = (() => {
     if (!t) return false;
     const budget = S.budget.player[t.force];
     if (budget < t.cost) return false;
+    if (sideCount('player') >= MAX_UNITS_PER_SIDE) { S.cb.onLog('Ordu kapasitesi dolu (maks 14 birlik).', 'system'); return false; }
     if (!validPlacement('player', x, z, t.domain)) return false;
     S.budget.player[t.force] -= t.cost;
     const u = makeUnit(type, 'player', x, z);
@@ -430,15 +576,26 @@ const Warmap = (() => {
         frigate: 1.5, gunboat: 1.5
       };
 
+      // Az sayıda büyük birlik: bu kuvvete düşen birim kotası
+      const forceSlots = force === 'land' ? 7 : force === 'air' ? 4 : 3;
+      let placed = 0;
       let guard = 0;
-      while (budget >= 2 && guard++ < 60) {
+      while (budget >= 2 && guard++ < 60 && sideCount(side) < MAX_UNITS_PER_SIDE && placed < forceSlots) {
         const affordable = ROSTER[force].filter(tp => budget >= UNIT_TYPES[tp].cost);
         if (affordable.length === 0) break;
-        let total = affordable.reduce((s, tp) => s + (weights[tp] || 1), 0);
-        let r = Math.random() * total, pick = affordable[0];
-        for (const tp of affordable) { r -= (weights[tp] || 1); if (r <= 0) { pick = tp; break; } }
+        // Slot azken bütçeyi büyük birliğe yatır (az ama güçlü ordu)
+        const slotsLeft = Math.min(forceSlots - placed, MAX_UNITS_PER_SIDE - sideCount(side));
+        let pick;
+        if (budget / Math.max(1, slotsLeft) > 5) {
+          pick = affordable.reduce((a, b) => UNIT_TYPES[b].cost > UNIT_TYPES[a].cost ? b : a);
+        } else {
+          let total = affordable.reduce((s, tp) => s + (weights[tp] || 1), 0);
+          let r = Math.random() * total; pick = affordable[0];
+          for (const tp of affordable) { r -= (weights[tp] || 1); if (r <= 0) { pick = tp; break; } }
+        }
         const t = UNIT_TYPES[pick];
         budget -= t.cost;
+        placed++;
 
         // Formasyon: topçu/AA geride, tank/apc önde. Taraf işaretine göre Z yönü.
         const dir = side === 'ai' ? -1 : 1;
@@ -469,6 +626,38 @@ const Warmap = (() => {
     let v = t.vs && t.vs[target.cls] ? t.vs[target.cls] : 1;
     if (t.onlyAir && target.domain !== 'air') v = t.groundVs || 0.35;
     return v;
+  }
+
+  function sideCount(side) {
+    let c = 0;
+    for (const u of S.units) if (u.side === side && u.alive) c++;
+    return c;
+  }
+
+  // Namlu ateşi flaşı (kısa parlak küre + söner) — bloom yakalar
+  function spawnMuzzleFlash(u) {
+    if (u.muzzleMesh) return;
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 1, depthWrite: false })
+    );
+    // namlu ucu yaklaşık: gövdenin ön yönü
+    flash.position.set(0, 0.5, 0.85);
+    u.mesh.add(flash);
+    u.muzzleMesh = flash;
+    u.muzzle = 0.08;
+  }
+
+  // Yerde iz (scorch) — kısa ömürlü koyu daire
+  function spawnScorch(x, z) {
+    const d = new THREE.Mesh(
+      new THREE.CircleGeometry(0.9 + Math.random() * 0.5, 16),
+      new THREE.MeshBasicMaterial({ color: 0x120c08, transparent: true, opacity: 0.55, depthWrite: false })
+    );
+    d.rotation.x = -Math.PI / 2;
+    d.position.set(x, 0.03, z);
+    rootGroup.add(d);
+    S.fx.scorches.push({ mesh: d, life: 8 });
   }
 
   function acquireTarget(u) {
@@ -506,10 +695,18 @@ const Warmap = (() => {
   function killUnit(u) {
     u.alive = false;
     u.dead = true;
-    Scene3D.worldExplode(u.mesh.position, u.side === 'player' ? 0xff7040 : 0x40c8ff, 14, 0.16, 6);
+    // Çok katmanlı patlama: ateş topu + duman
+    Scene3D.worldExplode(u.mesh.position, 0xffb040, 18, 0.22, 8);
+    Scene3D.worldExplode(u.mesh.position, 0x552211, 10, 0.3, 3);
+    Scene3D.addShake(0.12);
+    if (u.domain === 'ground') spawnScorch(u.mesh.position.x, u.mesh.position.z);
     const now = performance.now();
     if (now - S.lastBoom > 200) { S.lastBoom = now; sfx('boomSmall'); }
-    // Devrilme cesedi
+    // Baş-üstü öğeleri gizle, devrilme cesedi
+    if (u.mesh.userData.hpGroup) u.mesh.userData.hpGroup.visible = false;
+    if (u.mesh.userData.baseRing) u.mesh.userData.baseRing.visible = false;
+    const oi = overheadList.indexOf(u.mesh);
+    if (oi >= 0) overheadList.splice(oi, 1);
     corpses.push({ mesh: u.mesh, t: 0, dur: 0.7, startY: u.mesh.position.y });
   }
 
@@ -766,6 +963,7 @@ const Warmap = (() => {
             if (inSmoke(tx, tz)) miss += 0.5;
             if (terrainMod('cover', false) && tgt.domain === 'ground') miss += 0.18;
             const muzzle = u.mesh.position.clone(); muzzle.y += 0.4;
+            spawnMuzzleFlash(u);
             if (t.arc) {
               launchShell(muzzle, tgt, u.side, t.aoe);
             } else {
@@ -845,6 +1043,43 @@ const Warmap = (() => {
         sm.mesh.material.opacity -= dt * 0.8;
         if (sm.mesh.material.opacity <= 0) { rootGroup.remove(sm.mesh); S.fx.smokeMeshes.splice(i, 1); }
       }
+    }
+
+    // Baş-üstü bayrak/can barı kameraya döner + can barı güncellenir + namlu flaşı söner
+    const camObj = Scene3D.getCamera();
+    for (const u of S.units) {
+      if (!u.alive) continue;
+      const hpG = u.mesh.userData.hpGroup;
+      if (hpG) {
+        hpG.quaternion.copy(camObj.quaternion);
+        const frac = Math.max(0, u.hp / u.maxHp);
+        if (frac < 0.999) {
+          hpG.visible = true;
+          const fg = u.mesh.userData.hpFg;
+          fg.scale.x = Math.max(0.02, frac);
+          fg.position.x = -(1 - frac) * 0.5;
+          fg.material.color.setHex(frac > 0.5 ? 0x39ff6a : frac > 0.25 ? 0xffcc33 : 0xff3b3b);
+        }
+      }
+      // Muzzle flash sönümü
+      if (u.muzzleMesh) {
+        u.muzzle -= dt;
+        u.muzzleMesh.material.opacity = Math.max(0, u.muzzle / 0.08);
+        if (u.muzzle <= 0) { u.mesh.remove(u.muzzleMesh); u.muzzleMesh = null; }
+      }
+      // Rotor / turret / jet alevi
+      const ud = u.mesh.userData;
+      if (ud.rotor) ud.rotor.rotation.y += dt * 34;
+      if (ud.trotor) ud.trotor.rotation.x += dt * 40;
+      if (ud.flame) { const s = 0.8 + Math.random() * 0.5; ud.flame.scale.set(s, s, s); }
+    }
+
+    // Scorch izleri sönümü
+    for (let i = S.fx.scorches.length - 1; i >= 0; i--) {
+      const sc = S.fx.scorches[i];
+      sc.life -= dt;
+      if (sc.life < 2) sc.mesh.material.opacity = Math.max(0, 0.55 * (sc.life / 2));
+      if (sc.life <= 0) { rootGroup.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); S.fx.scorches.splice(i, 1); }
     }
 
     // Su dalgası
@@ -974,7 +1209,7 @@ const Warmap = (() => {
       }
     }, 400);
     rootGroup = null; mapGroup = null;
-    projectiles.length = 0; tracers.length = 0; corpses.length = 0; selection = [];
+    projectiles.length = 0; tracers.length = 0; corpses.length = 0; selection = []; overheadList.length = 0;
     const done = S.resolve;
     S = null;
     done(result);
@@ -1030,7 +1265,7 @@ const Warmap = (() => {
   function onWheel(e) {
     e.preventDefault();
     cam.targetDist = Math.max(16, Math.min(58, cam.targetDist + Math.sign(e.deltaY) * 4));
-    cam.targetHeight = cam.targetDist * 0.95;
+    cam.targetHeight = cam.targetDist * 1.28; // daha kuşbakışı açı
   }
   function onKey(e) {
     if (e.key === 'ArrowLeft' || e.key === 'a') pan.left = true;
@@ -1202,7 +1437,9 @@ const Warmap = (() => {
     const t = UNIT_TYPES[S.selectedType];
     if (!ghost || ghost.userData.type !== S.selectedType) {
       if (ghost) rootGroup.remove(ghost);
-      ghost = buildUnitMesh(S.selectedType, 'player');
+      const country = S.countries && S.countries.player ? S.countries.player[t.force] : null;
+      ghost = buildUnitMesh(S.selectedType, 'player', country);
+      ghost.scale.setScalar(UNIT_SCALE);
       ghost.userData.type = S.selectedType;
       ghost.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; } });
       rootGroup.add(ghost);
@@ -1270,7 +1507,7 @@ const Warmap = (() => {
     return new Promise(resolve => {
       rootGroup = new THREE.Group();
       Scene3D.getScene().add(rootGroup);
-      projectiles.length = 0; tracers.length = 0; corpses.length = 0; selection = [];
+      projectiles.length = 0; tracers.length = 0; corpses.length = 0; selection = []; overheadList.length = 0;
 
       const diff = config.difficulty || 'normal';
       S = {
@@ -1288,9 +1525,10 @@ const Warmap = (() => {
           player: { ...config.budgets.player },
           ai: { ...config.budgets.ai }
         },
+        countries: config.countries || { player: {}, ai: {} },
         sides: { player: { stance: 'hold', cp: 2 }, ai: { stance: 'hold', cp: diff === 'hard' ? 3 : 1 } },
         momentum: { player: { dmg: 1, cp: 1 }, ai: { dmg: 1, cp: 1 } },
-        fx: { barrages: [], smokes: [], smokeMeshes: [], ewUntil: { player: 0, ai: 0 } },
+        fx: { barrages: [], smokes: [], smokeMeshes: [], scorches: [], ewUntil: { player: 0, ai: 0 } },
         selectedType: null, armedAbility: null,
         aiTimer: 0, aiReact: diff === 'hard' ? 3.5 : diff === 'normal' ? 5.5 : 8,
         aiCpInterval: diff === 'hard' ? 2.2 : diff === 'normal' ? 3 : 4.2,
@@ -1299,12 +1537,13 @@ const Warmap = (() => {
         hq: {}, cb: normalizeCallbacks(callbacks), resolve
       };
 
+      overheadList.length = 0;
       buildMap(config.terrain);
       aiPlace('ai');
       if (S.spectateBoth) aiPlace('player'); // düello seyir: oyuncu ordusu da otomatik kurulur
 
-      // Kamera başlangıcı
-      cam.cx = 0; cam.cz = 6; cam.dist = 42; cam.height = 40; cam.targetDist = 42; cam.targetHeight = 40;
+      // Kamera başlangıcı (yakın ama kuşbakışı) — savaş başında hafif giriş süzülmesi
+      cam.cx = 0; cam.cz = 4; cam.dist = 30; cam.height = 30; cam.targetDist = 34; cam.targetHeight = 42;
       Scene3D.overrideCamera(true);
       bindInput();
       Scene3D.setTicker(tick);
