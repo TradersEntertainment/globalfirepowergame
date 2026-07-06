@@ -1705,6 +1705,7 @@ const Warmap = (() => {
       };
 
       overheadList.length = 0;
+      if (config.waterStyle) forcedWaterStyle = config.waterStyle; // kampanya modifikatörü (yoksa debug/rastgele)
       buildMap(config.terrain);
       // Online Sıralı: rakip kayıtlı ordu snapshot'ından kurulur; yoksa yerel AI.
       if (config.opponentArmy && config.opponentArmy.length) snapshotPlace('ai', config.opponentArmy);
@@ -1748,6 +1749,8 @@ const Warmap = (() => {
     runBattle, getUnitInfo,
     UNIT_TYPES, ROSTER, ABILITIES, STANCES,
     pickTerrain: () => TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
+    pickTerrainById: id => TERRAINS.find(t => t.id === id) || TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
+    eventById: id => EVENTS.find(e => e.id === id) || null,
     maybeEvent: () => Math.random() < 0.45 ? EVENTS[Math.floor(Math.random() * EVENTS.length)] : null,
     isActive: () => !!S,
     getPhase: () => S && S.phase,
@@ -1766,6 +1769,8 @@ const Warmap = (() => {
     get _debugTimeScale() { return timeScale; },
     set _debugWaterStyle(v) { forcedWaterStyle = v; },
     get _debugWaterStyle() { return waterLayout ? waterLayout.style : null; },
+    _debugCountries: () => S ? S.countries : null,
+    _debugWin: side => { if (S) endBattle(side === 'ai' ? 'ai' : 'player', false); },
     _debugWaterViolations: () => {
       if (!S) return null;
       let g = 0, se = 0, alive = 0;

@@ -10,6 +10,16 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.3 "Fetih 2.0 + Doktrin Dengesi" — Genişletilmiş Kampanya + Veri Odaklı Denge
+
+Tek-oyunculu derinlik + ölçülü denge.
+
+- **Fetih Harekâtı 2.0** — 5 → **8 düşman ulus**. Her aşama gerçek bir ülke **doktrinine** bağlı (🇬🇷→🇪🇬→🇷🇺→🇨🇳→🇮🇱→🇸🇪→🇺🇸→🇺🇳): oyuncu farklı doktrinlere karşı kontra kurmayı öğrenir; final aşama **elit BM Görev Gücü** (counterAll patronu). Enemy'nin bayrağı + doktrini aşamaya sabitlenir (çektiği kartlardan bağımsız).
+- **Aşama modifikatörleri** — her aşama savaşına zorlanan arazi/su/olay: Çöl Zırhı (Mısır)=çöl, Çelik Yumruk (Rusya)=dağ, Okyanus Hakimi (Çin)=kanal (haritayı bölen su), Demir Kubbe (İsrail)=gece, Gök Kartalı (İsveç)=orman (hava zayıf), NEXUS=şehir+nehir. `warmap.js`: `pickTerrainById` + `eventById` + `config.waterStyle`.
+- **Dinamik fetih şeridi** — menüdeki ilerleme çubuğu aşamalardan üretilir (8 ülke bayrağı; fethedilenler parlar, hover'da ad/başlık). Yeni perkler: **Ağır Takviye** (+2 tüm kuvvetler), **Sabotaj** (düşman −4 birlik gücü).
+- **Doktrin denge turu (veri odaklı)** — bağımsız Node simülatörü (`balance-sim.js`) 31 doktrini round-robin oynatıp kazanma oranı çıkardı. Kritik bulgular: **elit fraksiyon %36'da bozuktu** (costMul aşırı ceza) — düzeltildi (counterAll 1.30→1.42, costMul 1.5→1.30) ve artık %60 (uygun elit-tier); land-ağırlıklı doktrinler kısıldı, deniz-doktrinlerinin öz-cezası yumuşatıldı. Elit-dışı dağılım 43→34 puana daraldı. *(Not: soyut sim gemilerin menzil/konumlanma avantajını modelleyemez → deniz doktrinlerinin gerçek gücü daha yüksek; tam rekabetçi denge canlı telemetri gerektirir. Bu tur model-sağlam aykırılar düzeltildi.)*
+- **Teknik** — `app.js` (CAMPAIGN_STAGES 8'e çıkarıldı + modifikatör tüketimi + düşman doktrin override + perkler + genelleme), `warmap.js` (terrain/event/su config'leri), `countries.js` (denge nudge'ları), `index.html`/`styles.css` (dinamik bayraklı şerit). Doğrulama: doktrin-matematik 12/12, kampanya E2E (8-bayrak şerit + aşama ilerleme 🇬🇷→🇪🇬 + zorlanan çöl + düşman doktrini) + PvE/Düello/Online ERRORS NONE.
+
 ## v6.2 "Onboarding & Paylaşım" — Viral Zafer Kartı, Tutorial, Ayarlar, TR/EN
 
 Büyüme ve elde tutma cilası: yeni oyuncu öğrenir, kazanan paylaşır, herkes ayarlar.

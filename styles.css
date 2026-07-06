@@ -1084,18 +1084,19 @@ body {
 }
 
 .track-node {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 2px solid var(--border-light);
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-family-mono);
-  font-size: 0.72rem;
+  font-size: 1rem;
   font-weight: 700;
   position: relative;
+  filter: grayscale(0.6) opacity(0.6);
+  transition: var(--transition-smooth);
 }
 
 .track-node:not(:last-child)::after {
@@ -1112,6 +1113,7 @@ body {
   color: var(--color-premium);
   background: hsla(45, 100%, 50%, 0.1);
   box-shadow: 0 0 8px hsla(45, 100%, 50%, 0.3);
+  filter: none;
 }
 
 .menu-rules {

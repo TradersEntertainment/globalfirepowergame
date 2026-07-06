@@ -63,46 +63,56 @@ const MAX_TACTICS = 4;
 // ==========================================================================
 // Campaign Data - 5 düşman komutanı
 // ==========================================================================
+// Fetih 2.0 — 8 ulus. Her aşama gerçek bir ülke DOKTRİNİNE bağlı (iso): oyuncu farklı
+// doktrinlere karşı kontra kurmayı öğrenir. mod = savaş modifikatörü (terrain/water/event).
 const CAMPAIGN_STAGES = [
   {
-    name: "Teğmen Marko",
-    flag: "🎖️",
-    title: "Sınır Karakolu",
-    desc: "Acemi bir komutan. Isınma turu.",
-    leader: { id: "c1", name: "Teğmen Marko", flag: "🎖️", title: "Sınır Karakolu", desc: "Özel yeteneği yok.", abilityType: "none", abilityVal: 0 },
-    hp: 100, aiPowerBonus: 0, aiDifficulty: 'easy', aiTacticCount: 0, reward: 30
+    name: "Teğmen Kostas", iso: "gr", flag: "🇬🇷", title: "Ege Karakolu",
+    desc: "Acemi bir sınır komutanı. Hava/deniz ağırlıklı ama zayıf. Isınma turu.",
+    leader: { id: "c1", name: "Teğmen Kostas", flag: "🇬🇷", title: "Ege Karakolu", desc: "Özel yeteneği yok.", abilityType: "none", abilityVal: 0 },
+    hp: 100, aiPowerBonus: 0, aiDifficulty: 'easy', aiTacticCount: 0, reward: 30, mod: {}
   },
   {
-    name: "General Volkov",
-    flag: "🐻",
-    title: "Çelik Yumruk",
-    desc: "Kara birliklerini ezmeye programlı sert bir stratejist.",
-    leader: { id: "c2", name: "General Volkov", flag: "🐻", title: "Çelik Yumruk", desc: "Rakip Kara birimini -8 zayıflatır.", abilityType: "land_debuff", abilityVal: 8 },
-    hp: 100, aiPowerBonus: 2, aiDifficulty: 'normal', aiTacticCount: 1, reward: 30
+    name: "Albay Rashid", iso: "eg", flag: "🇪🇬", title: "Çöl Zırhı",
+    desc: "Tank ve piyade ağırlıklı çöl ordusu. Tanksavarla karşıla.",
+    leader: { id: "c2", name: "Albay Rashid", flag: "🇪🇬", title: "Çöl Zırhı", desc: "Rakip Kara birimini -6 zayıflatır.", abilityType: "land_debuff", abilityVal: 6 },
+    hp: 110, aiPowerBonus: 1, aiDifficulty: 'easy', aiTacticCount: 0, reward: 30, mod: { terrain: 'desert' }
   },
   {
-    name: "Amiral Zheng",
-    flag: "⚓",
-    title: "Okyanus Hakimi",
-    desc: "Filosu yaralarını hızla sarar. Uzun savaşta tehlikelidir.",
-    leader: { id: "c3", name: "Amiral Zheng", flag: "⚓", title: "Okyanus Hakimi", desc: "Her tur sonu +5 HP yeniler.", abilityType: "heal_round_end", abilityVal: 5 },
-    hp: 110, aiPowerBonus: 3, aiDifficulty: 'normal', aiTacticCount: 1, reward: 30
+    name: "General Volkov", iso: "ru", flag: "🇷🇺", title: "Çelik Yumruk",
+    desc: "Ağır zırhlı doktrin: tankları ezici. Dağ geçidinde savaşacaksın — zırh yavaşlar.",
+    leader: { id: "c3", name: "General Volkov", flag: "🇷🇺", title: "Çelik Yumruk", desc: "Rakip Kara birimini -8 zayıflatır.", abilityType: "land_debuff", abilityVal: 8 },
+    hp: 120, aiPowerBonus: 2, aiDifficulty: 'normal', aiTacticCount: 1, reward: 30, mod: { terrain: 'mountain' }
   },
   {
-    name: "Mareşal Steiner",
-    flag: "🦅",
-    title: "Gök Kartalı",
-    desc: "Hava üstünlüğü doktrini. Gökyüzünü ona bırakma.",
-    leader: { id: "c4", name: "Mareşal Steiner", flag: "🦅", title: "Gök Kartalı", desc: "Hava birimlerine +7 Güç verir.", abilityType: "air_buff", abilityVal: 7 },
-    hp: 120, aiPowerBonus: 5, aiDifficulty: 'hard', aiTacticCount: 2, reward: 30
+    name: "Amiral Zheng", iso: "cn", flag: "🇨🇳", title: "Okyanus Hakimi",
+    desc: "Devasa donanma. Harita bir kanalla bölünür — deniz üstünlüğü kritik.",
+    leader: { id: "c4", name: "Amiral Zheng", flag: "🇨🇳", title: "Okyanus Hakimi", desc: "Her tur sonu +5 HP yeniler.", abilityType: "heal_round_end", abilityVal: 5 },
+    hp: 130, aiPowerBonus: 3, aiDifficulty: 'normal', aiTacticCount: 1, reward: 30, mod: { water: 'channel' }
   },
   {
-    name: "Yüksek Komutan NEXUS",
-    flag: "☢️",
-    title: "Kıyamet Protokolü",
-    desc: "Son savunma hattı. Nükleer seçenekleri masada tutar.",
-    leader: { id: "c5", name: "Yüksek Komutan NEXUS", flag: "☢️", title: "Kıyamet Protokolü", desc: "Her 3 turda en güçlü birimini yarıya indirir.", abilityType: "nuke_debuff", abilityVal: 0.5 },
-    hp: 140, aiPowerBonus: 8, aiDifficulty: 'hard', aiTacticCount: 2, reward: 60
+    name: "Komutan Levi", iso: "il", flag: "🇮🇱", title: "Demir Kubbe",
+    desc: "Dron + hava savunma doktrini. Havanı düşürür — kara/deniz ile bastır.",
+    leader: { id: "c5", name: "Komutan Levi", flag: "🇮🇱", title: "Demir Kubbe", desc: "Rakip Hava birimini -7 zayıflatır.", abilityType: "land_debuff", abilityVal: 7 },
+    hp: 140, aiPowerBonus: 4, aiDifficulty: 'normal', aiTacticCount: 1, reward: 30, mod: { event: 'night' }
+  },
+  {
+    name: "Mareşal Steiner", iso: "se", flag: "🇸🇪", title: "Gök Kartalı",
+    desc: "Hava üstünlüğü doktrini. Sık ormanda savaşacaksın — hava zayıflar, siper artar.",
+    leader: { id: "c6", name: "Mareşal Steiner", flag: "🇸🇪", title: "Gök Kartalı", desc: "Hava birimlerine +6 Güç verir.", abilityType: "air_buff", abilityVal: 6 },
+    hp: 150, aiPowerBonus: 5, aiDifficulty: 'hard', aiTacticCount: 2, reward: 40, mod: { terrain: 'forest' }
+  },
+  {
+    name: "General Hawk", iso: "us", flag: "🇺🇸", title: "Küresel Güç",
+    desc: "Dengeli, teknolojik süper güç. Her cephede güçlü — zayıf noktasını bul.",
+    leader: { id: "c7", name: "General Hawk", flag: "🇺🇸", title: "Küresel Güç", desc: "Hava birimlerine +7 Güç verir.", abilityType: "air_buff", abilityVal: 7 },
+    hp: 160, aiPowerBonus: 6, aiDifficulty: 'hard', aiTacticCount: 2, reward: 40, mod: {}
+  },
+  {
+    name: "Yüksek Komutan NEXUS", iso: "un", flag: "🇺🇳", title: "Birleşik Kuvvet",
+    desc: "Elit BM Görev Gücü: her tipe üstün (zayıflığı yok) ama az sayıda. Son savunma hattı.",
+    leader: { id: "c8", name: "Yüksek Komutan NEXUS", flag: "🇺🇳", title: "Birleşik Kuvvet", desc: "Her 3 turda en güçlü birimini yarıya indirir.", abilityType: "nuke_debuff", abilityVal: 0.5 },
+    hp: 180, aiPowerBonus: 8, aiDifficulty: 'hard', aiTacticCount: 2, reward: 70, mod: { terrain: 'urban', water: 'river' }
   }
 ];
 
@@ -112,7 +122,9 @@ const PERK_POOL = [
   { id: "air_re",    icon: "fa-jet-fighter",        name: "FİLO TAKVİYESİ",    desc: "Harekât boyunca yerleştirilen Hava birimlerine +4 Güç." },
   { id: "sea_re",    icon: "fa-ship",               name: "DONANMA TAKVİYESİ", desc: "Harekât boyunca yerleştirilen Deniz birimlerine +4 Güç." },
   { id: "tactics2",  icon: "fa-chess-knight",       name: "HARP AKADEMİSİ",    desc: "Anında 2 taktik kartı kazanırsın." },
-  { id: "medic",     icon: "fa-truck-medical",      name: "SEYYAR HASTANE",    desc: "Harekât boyunca her tur sonunda +3 HP yenilenir." }
+  { id: "medic",     icon: "fa-truck-medical",      name: "SEYYAR HASTANE",    desc: "Harekât boyunca her tur sonunda +3 HP yenilenir." },
+  { id: "heavy",     icon: "fa-dumbbell",           name: "AĞIR TAKVİYE",      desc: "Harekât boyunca tüm kuvvetlere (Kara/Hava/Deniz) +2 Güç." },
+  { id: "sabotage",  icon: "fa-user-secret",        name: "SABOTAJ",           desc: "Harekât boyunca düşman her savaşa -4 birlik gücüyle başlar." }
 ];
 
 // ==========================================================================
@@ -458,10 +470,14 @@ function refreshMenuStats() {
   document.getElementById('ach-count').innerText = Object.keys(META.achievements).length;
   document.getElementById('ach-total').innerText = ACHIEVEMENTS_DB.length;
 
-  const nodes = document.querySelectorAll('#campaign-track .track-node');
-  nodes.forEach((node, idx) => {
-    node.classList.toggle('cleared', idx < META.stats.campaignBest);
-  });
+  // Fetih şeridi: aşamalardan dinamik (ülke bayrakları; fethedilenler parlar)
+  const track = document.getElementById('campaign-track');
+  if (track) {
+    track.innerHTML = CAMPAIGN_STAGES.map((s, i) =>
+      `<span class="track-node ${i < META.stats.campaignBest ? 'cleared' : ''}" title="${s.name} — ${s.title}">${s.flag}</span>`).join('');
+  }
+  const total = document.getElementById('campaign-total');
+  if (total) total.innerText = CAMPAIGN_STAGES.length;
 
   updateSoundButtons();
 }
@@ -713,7 +729,7 @@ function updateLeaderDisplays() {
 function startCampaign() {
   gameMode = 'campaign';
   campaignStage = 0;
-  campaignPerks = { powerBonus: { land: 0, air: 0, sea: 0 }, medicHeal: 0 };
+  campaignPerks = { powerBonus: { land: 0, air: 0, sea: 0 }, medicHeal: 0, aiSabotage: 0 };
   playerHP = 100;
   openLeaderSelection();
 }
@@ -737,11 +753,14 @@ function startCampaignStage(stageNum) {
 
   updateLeaderDisplays();
 
+  campaignMod = stage.mod || {}; // savaş modifikatörü (terrain/water/event)
+
   resetMatch({ keepPlayerHP: stageNum > 1, aiTacticCount: stage.aiTacticCount });
 
-  writeLog(`━━━ CEPHE ${stageNum}/5: ${stage.name} (${stage.title}) ━━━`, 'ability');
+  writeLog(`━━━ CEPHE ${stageNum}/${CAMPAIGN_STAGES.length}: ${stage.flag} ${stage.name} (${stage.title}) ━━━`, 'ability');
   writeLog(stage.desc, 'system');
 }
+let campaignMod = null; // aktif kampanya aşamasının savaş modifikatörü
 
 function getRandomPerks(count) {
   const pool = [...PERK_POOL];
@@ -795,6 +814,14 @@ function applyPerk(perk) {
       break;
     case 'medic':
       campaignPerks.medicHeal += 3;
+      break;
+    case 'heavy':
+      campaignPerks.powerBonus.land += 2;
+      campaignPerks.powerBonus.air += 2;
+      campaignPerks.powerBonus.sea += 2;
+      break;
+    case 'sabotage':
+      campaignPerks.aiSabotage += 4;
       break;
   }
   writeLog(`Harekât desteği alındı: ${perk.name}`, 'ability');
@@ -2113,6 +2140,11 @@ async function startBattlePhase() {
     }
   };
 
+  // Kampanya: Sabotaj perk'i düşman birlik gücünü azaltır
+  if (gameMode === 'campaign' && campaignPerks.aiSabotage > 0) {
+    budgets.ai.land = Math.max(0, budgets.ai.land - campaignPerks.aiSabotage);
+  }
+
   const totalPlayer = budgets.player.land + budgets.player.air + budgets.player.sea;
   const totalAi = budgets.ai.land + budgets.ai.air + budgets.ai.sea;
 
@@ -2123,8 +2155,10 @@ async function startBattlePhase() {
     return;
   }
 
-  const terrain = Warmap.pickTerrain();
-  const battleEvent = Warmap.maybeEvent();
+  // Kampanya modifikatörü: aşamaya özel arazi/su/olay zorlaması
+  const mod = (gameMode === 'campaign' && campaignMod) ? campaignMod : {};
+  const terrain = mod.terrain ? Warmap.pickTerrainById(mod.terrain) : Warmap.pickTerrain();
+  const battleEvent = mod.event ? Warmap.eventById(mod.event) : Warmap.maybeEvent();
 
   // Sahneyi muharebe haritasına çevir
   document.body.classList.add('warmap-active');
@@ -2151,10 +2185,16 @@ async function startBattlePhase() {
     player: { land: board.player.land, air: board.player.air, sea: board.player.sea },
     ai: { land: board.ai.land, air: board.ai.air, sea: board.ai.sea }
   };
+  // Kampanya: düşman kimliği/doktrini aşamaya sabitlenir (kart yerine ulus)
+  if (gameMode === 'campaign' && CAMPAIGN_STAGES[campaignStage - 1]) {
+    const enemy = countryByIso(CAMPAIGN_STAGES[campaignStage - 1].iso);
+    countries.ai = { land: enemy, air: enemy, sea: enemy };
+  }
   currentPlayerCountries = countries.player;
 
   const result = await Warmap.runBattle({
-    budgets, countries, terrain, event: battleEvent, difficulty, spectateBoth: spectate
+    budgets, countries, terrain, event: battleEvent, difficulty, spectateBoth: spectate,
+    waterStyle: mod.water || undefined
   }, {
     onLog: writeLog,
     onBanner: showBattleBanner,
@@ -2540,7 +2580,7 @@ function triggerGameOver() {
     return;
   }
 
-  if (gameMode === 'campaign' && won && campaignStage < 5) {
+  if (gameMode === 'campaign' && won && campaignStage < CAMPAIGN_STAGES.length) {
     const stage = CAMPAIGN_STAGES[campaignStage - 1];
     addMedals(stage.reward);
     sfx('victory');
@@ -2573,13 +2613,13 @@ function triggerGameOver() {
     if (gameMode === 'campaign') {
       const stage = CAMPAIGN_STAGES[campaignStage - 1];
       medalsEarned = stage.reward + 100;
-      META.stats.campaignBest = 5;
+      META.stats.campaignBest = CAMPAIGN_STAGES.length;
       saveMeta();
       unlockAchievement('conqueror');
 
       modal.className = 'game-over-modal victory';
       gameOverTitle.innerText = "FETİH TAMAMLANDI!";
-      gameOverMsg.innerText = `${playerLeader.name} liderliğinde 5 cephenin tamamını ele geçirdin. Dünya artık senin komutanda!`;
+      gameOverMsg.innerText = `${playerLeader.name} liderliğinde ${CAMPAIGN_STAGES.length} cephenin tamamını ele geçirdin. Dünya artık senin komutanda!`;
       gameOverIcon.className = "fa-solid fa-crown trophy-icon";
       writeLog("HAREKÂT BİTTİ: Tüm cepheler fethedildi!", 'win');
     } else {
