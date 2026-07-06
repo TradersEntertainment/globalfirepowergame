@@ -36,7 +36,13 @@ const META = {
     wins: 0,
     losses: 0
   },
-  muted: false
+  muted: false,
+  // Ayarlar
+  volume: 0.8,
+  bloom: true,
+  shadows: true,
+  lang: 'tr',        // 'tr' | 'en'
+  tutorialDone: false
 };
 
 // Kısa, çakışma olasılığı düşük oyuncu kimliği üret.
@@ -72,6 +78,11 @@ function loadMeta() {
       META.stats = Object.assign(META.stats, saved.stats || {});
       META.online = Object.assign(META.online, saved.online || {});
       META.muted = !!saved.muted;
+      if (saved.volume != null) META.volume = saved.volume;
+      if (saved.bloom != null) META.bloom = !!saved.bloom;
+      if (saved.shadows != null) META.shadows = !!saved.shadows;
+      if (saved.lang) META.lang = saved.lang;
+      META.tutorialDone = !!saved.tutorialDone;
     }
   } catch (e) {
     console.warn("Meta verisi okunamadı, sıfırdan başlanıyor.", e);

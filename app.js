@@ -1870,6 +1870,13 @@ async function startOnlineRankedFlow() {
   saveMeta();
 
   onlineBusy = false;
+  lastShareData = {
+    won, myFlag: myCountry.flag, myName: profile.name, oppFlag: oppCountry.flag,
+    oppName: isBot ? 'Bot' : (opponent.name || 'Rakip'),
+    unitsMe: result.counts ? result.counts.player : 0, unitsOpp: result.counts ? result.counts.ai : 0,
+    terrain: result.terrainName || '', duration: result.duration || 0,
+    ratingLine: `Elo ${oldRating} → ${rep.rating} (${rep.delta >= 0 ? '+' : ''}${rep.delta})`
+  };
   showOnlineResult(won, oldRating, rep.rating, rep.delta, myCountry, oppCountry, opponent, isBot);
 }
 
@@ -1925,6 +1932,139 @@ async function openLeaderboard() {
       `<span class="lb-rating">⭐ ${data.you.rating}</span>`;
     list.appendChild(you);
   }
+}
+
+// ==========================================================================
+// Ayarlar (ses / bloom / gölge / dil)
+// ==========================================================================
+function applySettings() {
+  AudioEngine.setVolume(META.volume != null ? META.volume : 0.8);
+  Scene3D.setBloomEnabled(META.bloom);
+  Scene3D.setShadowsEnabled(META.shadows);
+  I18N.applyLang();
+}
+function setToggle(id, on) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.classList.toggle('on', !!on);
+  b.textContent = on ? I18N.T('settings.on') : I18N.T('settings.off');
+}
+function openSettings() {
+  document.getElementById('set-volume').value = Math.round((META.volume != null ? META.volume : 0.8) * 100);
+  setToggle('set-bloom', META.bloom);
+  setToggle('set-shadows', META.shadows);
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === (META.lang || 'tr')));
+  mainMenuOverlay.classList.add('hidden');
+  document.getElementById('settings-overlay').classList.remove('hidden');
+}
+function switchLang(lang) {
+  META.lang = lang; saveMeta();
+  I18N.applyLang();
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  setToggle('set-bloom', META.bloom); setToggle('set-shadows', META.shadows);
+  updateSoundButtons();
+}
+
+// ==========================================================================
+// Nasıl Oynanır (interaktif rehber)
+// ==========================================================================
+const HOWTO_STEPS = [
+  { e: '🎯', t: 'howto.1.t', d: 'howto.1.d' },
+  { e: '✊', t: 'howto.2.t', d: 'howto.2.d' },
+  { e: '🎖️', t: 'howto.3.t', d: 'howto.3.d' },
+  { e: '⚔️', t: 'howto.4.t', d: 'howto.4.d' },
+  { e: '🌊', t: 'howto.5.t', d: 'howto.5.d' },
+  { e: '🏆', t: 'howto.6.t', d: 'howto.6.d' }
+];
+let howtoIdx = 0;
+function openHowto() {
+  howtoIdx = 0; renderHowto();
+  mainMenuOverlay.classList.add('hidden');
+  document.getElementById('howto-overlay').classList.remove('hidden');
+}
+function renderHowto() {
+  const s = HOWTO_STEPS[howtoIdx];
+  document.getElementById('howto-body').innerHTML =
+    `<div class="howto-icon">${s.e}</div><h2>${I18N.T(s.t)}</h2><p>${I18N.T(s.d)}</p>`;
+  document.getElementById('howto-dots').innerHTML = HOWTO_STEPS.map((_, i) => `<span class="${i === howtoIdx ? 'on' : ''}"></span>`).join('');
+  document.querySelector('#btn-howto-next span').textContent = howtoIdx === HOWTO_STEPS.length - 1 ? I18N.T('btn.start') : I18N.T('btn.next');
+}
+function howtoNext() { if (howtoIdx < HOWTO_STEPS.length - 1) { howtoIdx++; renderHowto(); } else closeHowto(); }
+function closeHowto() {
+  document.getElementById('howto-overlay').classList.add('hidden');
+  META.tutorialDone = true; saveMeta();
+  showMainMenu();
+}
+
+// ==========================================================================
+// Viral paylaşım kartı (composited PNG)
+// ==========================================================================
+let lastShareData = null;
+function buildShareImage(d) {
+  const W = 1200, H = 630;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  // Arka plan degrade (kazanç/kayıp tonlu)
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#0a1220');
+  g.addColorStop(1, d.won ? '#0e2a1c' : '#2a1012');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Izgara dokusu
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.textAlign = 'center';
+  // Bayraklar + VS
+  ctx.font = '150px "Noto Color Emoji", "Segoe UI Emoji", sans-serif';
+  ctx.fillText(d.myFlag, 300, 300);
+  ctx.fillText(d.oppFlag, 900, 300);
+  ctx.fillStyle = '#ff5544';
+  ctx.font = '800 70px Outfit, sans-serif';
+  ctx.fillText(I18N.T('result.vs'), 600, 270);
+  // İsimler
+  ctx.fillStyle = '#e8eef7';
+  ctx.font = '700 40px Outfit, sans-serif';
+  ctx.fillText(d.myName.slice(0, 16), 300, 370);
+  ctx.fillText(d.oppName.slice(0, 16), 900, 370);
+  // Verdikt
+  ctx.font = '900 88px Outfit, sans-serif';
+  ctx.fillStyle = d.won ? '#3ddc84' : '#ff5566';
+  ctx.fillText(d.won ? `${d.myFlag} ${I18N.T('result.victory')}` : `${I18N.T('result.defeat')}`, 600, 130);
+  // İstatistik satırı
+  ctx.fillStyle = '#aebccb';
+  ctx.font = '500 34px Outfit, sans-serif';
+  const stat = `${I18N.T('result.remaining')}: ${d.unitsMe}–${d.unitsOpp}   ·   ${I18N.T('result.duration')}: ${Math.floor(d.duration / 60)}:${String(d.duration % 60).padStart(2, '0')}   ·   ${d.terrain}`;
+  ctx.fillText(stat, 600, 460);
+  if (d.ratingLine) { ctx.fillStyle = '#ffd24a'; ctx.font = '700 34px "JetBrains Mono", monospace'; ctx.fillText(d.ratingLine, 600, 512); }
+  // Watermark
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '600 26px Outfit, sans-serif';
+  ctx.fillText('GFP: Tactical Fronts · globalfirepowergame.vercel.app', 600, 595);
+  return cv;
+}
+async function shareResult() {
+  if (!lastShareData) return;
+  const cv = buildShareImage(lastShareData);
+  const dataUrl = cv.toDataURL('image/png');
+  window._lastShareUrl = dataUrl; // test için
+  const d = lastShareData;
+  const caption = d.won
+    ? `${d.myFlag} ${d.myName} ${I18N.T('result.crushed')} ${d.oppFlag} ${d.oppName}! · GFP: Tactical Fronts`
+    : `${d.myFlag} ${d.myName} ${I18N.T('result.vs')} ${d.oppFlag} ${d.oppName} · GFP: Tactical Fronts`;
+  try {
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    const file = new File([blob], 'gfp-result.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], text: caption });
+      return;
+    }
+  } catch (e) { /* paylaşım iptal/yok → indir */ }
+  // Fallback: indir + başlığı panoya kopyala
+  const a = document.createElement('a');
+  a.href = dataUrl; a.download = 'gfp-result.png';
+  document.body.appendChild(a); a.click(); a.remove();
+  try { await navigator.clipboard.writeText(caption); } catch (e) { /* yoksay */ }
 }
 
 async function startBattlePhase() {
@@ -2714,6 +2854,26 @@ document.getElementById('btn-or-menu').addEventListener('click', () => {
   document.getElementById('online-result-overlay').classList.add('hidden');
   showMainMenu();
 });
+document.getElementById('btn-or-share').addEventListener('click', () => { sfx('click'); shareResult(); });
+
+// ---- Ayarlar ----
+document.getElementById('btn-menu-settings').addEventListener('click', () => { sfx('click'); openSettings(); });
+document.getElementById('btn-close-settings').addEventListener('click', () => { sfx('click'); document.getElementById('settings-overlay').classList.add('hidden'); showMainMenu(); });
+document.getElementById('set-volume').addEventListener('input', (e) => {
+  META.volume = (+e.target.value) / 100; AudioEngine.setVolume(META.volume); saveMeta();
+});
+document.getElementById('set-bloom').addEventListener('click', () => {
+  sfx('click'); META.bloom = !META.bloom; Scene3D.setBloomEnabled(META.bloom); setToggle('set-bloom', META.bloom); saveMeta();
+});
+document.getElementById('set-shadows').addEventListener('click', () => {
+  sfx('click'); META.shadows = !META.shadows; Scene3D.setShadowsEnabled(META.shadows); setToggle('set-shadows', META.shadows); saveMeta();
+});
+document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => { sfx('click'); switchLang(b.dataset.lang); }));
+
+// ---- Nasıl Oynanır ----
+document.getElementById('btn-menu-howto').addEventListener('click', () => { sfx('click'); openHowto(); });
+document.getElementById('btn-howto-next').addEventListener('click', () => { sfx('click'); howtoNext(); });
+document.getElementById('btn-howto-skip').addEventListener('click', () => { sfx('click'); closeHowto(); });
 
 document.getElementById('btn-menu-achievements').addEventListener('click', () => {
   sfx('click');
@@ -2744,5 +2904,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   Scene3D.onSlotClick(handleSceneSlotClick);
+  applySettings(); // ses/bloom/gölge/dil'i META'dan uygula
   showMainMenu();
+  // İlk açılışta "Nasıl Oynanır" rehberini göster
+  if (!META.tutorialDone) setTimeout(() => openHowto(), 700);
 });

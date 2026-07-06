@@ -1350,7 +1350,10 @@ const Warmap = (() => {
       forces,
       totalPlayer: sideStrength('player'),
       totalAi: sideStrength('ai'),
-      playerArmy: S.capturedArmy || []
+      playerArmy: S.capturedArmy || [],
+      counts: counts(),
+      duration: Math.round(S.elapsed),
+      terrainName: S.terrain ? S.terrain.name : ''
     };
 
     setTimeout(() => finish(result), 1400);

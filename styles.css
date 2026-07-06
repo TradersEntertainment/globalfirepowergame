@@ -2164,3 +2164,37 @@ body.online-mode .plate-info h2 { font-size: 1.05rem; }
   box-shadow: 0 0 14px hsla(45, 100%, 50%, 0.25);
 }
 .oc-badge { position: absolute; top: 4px; right: 4px; }
+
+/* ==========================================================================
+   Ayarlar + Nasıl Oynanır
+   ========================================================================== */
+.settings-modal { max-width: 460px; }
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--border-light);
+}
+.settings-row label { color: var(--text-secondary); font-size: 0.95rem; }
+.settings-row input[type="range"] { flex: 1; max-width: 220px; accent-color: var(--color-accent); }
+.toggle-btn {
+  min-width: 74px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-light); background: var(--bg-card);
+  color: var(--text-muted); font-weight: 700; font-size: 0.82rem; transition: var(--transition-smooth);
+}
+.toggle-btn.on { background: hsla(145, 80%, 45%, 0.18); border-color: var(--color-success); color: var(--color-success); }
+.lang-switch { display: flex; gap: 8px; }
+.lang-btn {
+  padding: 8px 14px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-secondary); font-weight: 700;
+}
+.lang-btn.active { border-color: var(--color-accent); color: var(--text-primary); box-shadow: var(--glow-shadow); }
+.settings-note { color: var(--text-muted); font-size: 0.8rem; margin-top: 14px; }
+
+.howto-modal { max-width: 520px; }
+.howto-body { min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px; }
+.howto-icon { font-size: 4.4rem; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); animation: hudRise 0.35s ease; }
+.howto-body h2 { color: var(--color-accent); font-size: 1.3rem; }
+.howto-body p { color: var(--text-secondary); font-size: 0.98rem; line-height: 1.6; max-width: 420px; }
+.howto-dots { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+.howto-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; transition: var(--transition-smooth); }
+.howto-dots span.on { opacity: 1; background: var(--color-accent); transform: scale(1.25); }
+.howto-actions { display: flex; gap: 10px; justify-content: center; }

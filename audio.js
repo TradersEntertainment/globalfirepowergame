@@ -4,6 +4,7 @@
 
 const AudioEngine = (() => {
   let ctx = null;
+  let master = null; // ana ses gain'i (ayarlar menüsü ses seviyesi)
 
   function ensureCtx() {
     if (typeof META !== "undefined" && META.muted) return null;
@@ -12,6 +13,9 @@ const AudioEngine = (() => {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
         ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = (typeof META !== "undefined" && META.volume != null) ? META.volume : 0.8;
+        master.connect(ctx.destination);
       }
       if (ctx.state === "suspended") ctx.resume();
       return ctx;
@@ -19,6 +23,8 @@ const AudioEngine = (() => {
       return null;
     }
   }
+  function out() { return master || (ctx && ctx.destination); }
+  function setVolume(v) { if (master) master.gain.value = Math.max(0, Math.min(1, v)); }
 
   // ---- Nota çözümleme -------------------------------------------------------
   const NOTE_OFFSET = { C: -9, D: -7, E: -5, F: -4, G: -2, A: 0, B: 2 };
@@ -48,7 +54,7 @@ const AudioEngine = (() => {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain).connect(c.destination);
+    osc.connect(gain).connect(out());
     osc.start(t0);
     osc.stop(t0 + dur + 0.05);
   }
@@ -74,7 +80,7 @@ const AudioEngine = (() => {
     const gain = c.createGain();
     gain.gain.setValueAtTime(vol, t0);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(filter).connect(gain).connect(c.destination);
+    src.connect(filter).connect(gain).connect(out());
     src.start(t0);
   }
 
@@ -141,7 +147,7 @@ const AudioEngine = (() => {
       osc.stop(t1 + 0.06);
     });
 
-    filter.connect(gain).connect(c.destination);
+    filter.connect(gain).connect(out());
   }
 
   let lastAnthemAt = 0;
@@ -222,7 +228,7 @@ const AudioEngine = (() => {
     gain.gain.value = 0.0001;
     gain.gain.exponentialRampToValueAtTime(0.05, c.currentTime + 2);
 
-    src.connect(filter).connect(gain).connect(c.destination);
+    src.connect(filter).connect(gain).connect(out());
     src.start();
 
     const boomTimer = setInterval(() => {
@@ -302,7 +308,7 @@ const AudioEngine = (() => {
     }
   }
 
-  return { play, playAnthem, startAmbient, stopAmbient, setAmbientIntensity, refreshAmbient };
+  return { play, playAnthem, startAmbient, stopAmbient, setAmbientIntensity, refreshAmbient, setVolume };
 })();
 
 function sfx(name) {

@@ -10,6 +10,16 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.2 "Onboarding & Paylaşım" — Viral Zafer Kartı, Tutorial, Ayarlar, TR/EN
+
+Büyüme ve elde tutma cilası: yeni oyuncu öğrenir, kazanan paylaşır, herkes ayarlar.
+
+- **Viral paylaşım kartı** — Online maç sonrası tek tık **"Görüntü Oluştur & Paylaş"**: 1200×630 (sosyal-paylaşım boyutu) kompozit PNG üretir — **🇹🇷 SEN KARŞI 🇬🇷 RAKİP**, ZAFER/YENİLGİ, kalan birlik / süre / arazi, Elo delta ve `globalfirepowergame.vercel.app` watermark'ı. `navigator.share` destekliyse doğrudan paylaşır, değilse PNG indirir + başlığı panoya kopyalar. Harici kütüphane yok (canvas 2D). "Türkiye vs Yunanistan" reklamını doğrudan paylaşıma çevirir.
+- **"Nasıl Oynanır" interaktif rehber** — İlk açılışta otomatik, menüden tekrar erişilebilir 6 adımlı rehber (ordu kur → taş-kağıt-makas → ulusal doktrin → savaş/yönlendir → su/köprü → kazan/paylaş). Elde tutmanın #1 belirleyicisi.
+- **Ayarlar menüsü** — Ses seviyesi (WebAudio master gain), **Bloom aç/kapa**, **Gölgeler aç/kapa** (performans için), ve **TR/EN dil** anahtarı — hepsi localStorage'da kalıcı, açılışta uygulanır.
+- **Çift dil (TR/EN)** — Hafif i18n sistemi (`i18n.js`, `T()` + `[data-i18n]`): menü, mod kartları, ayarlar, tutorial ve paylaşım kartı canlı dil değişimiyle çevrilir (çevirisi olmayan TR'ye düşer). Uluslararası virallik için EN.
+- **Teknik** — Yeni `i18n.js`; `audio.js` master gain + `setVolume`; `scene3d.js` `setBloomEnabled`/`setShadowsEnabled`; `meta.js` ayar alanları (volume/bloom/shadows/lang/tutorialDone); `warmap.js` sonuç objesine birlik sayısı/süre/arazi; `app.js` ayarlar + rehber + paylaşım kartı kompozitörü. Doğrulama: tutorial/ayarlar/EN-switch/paylaşım-PNG uçtan uca + PvE/Düello/Online regresyonları ERRORS NONE.
+
 ## v6.1 "Ulusal Doktrinler + Su Reformu" — Ülkeye Özel Birlikler, Counter Ulus, Bilgi Kartları, Nehirli Haritalar
 
 Ulusal kimlik artık oynanışı da belirliyor, birlikleri öğrenmek kolaylaştı ve deniz haritaların merkezine taşındı.

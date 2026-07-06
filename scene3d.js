@@ -34,6 +34,7 @@ const Scene3D = (() => {
   let spaceGroup = null;     // uzay fonu (küre + yıldızlar + toz) — muharebede gizlenir
   let cameraOverride = false; // true iken kamerayı dış motor (warmap) sürer
   let composer = null, bloomPass = null; // post-processing (bloom)
+  let bloomEnabled = true, shadowsEnabled = true; // ayarlar menüsü
   let keyLightRef = null;
 
   // Kamera hedef durumu
@@ -1432,7 +1433,7 @@ const Scene3D = (() => {
       if (shakeAmp < 0.001) shakeAmp = 0;
     }
 
-    if (composer) composer.render();
+    if (composer && bloomEnabled) composer.render();
     else renderer.render(scene, camera);
   }
 
@@ -1553,6 +1554,8 @@ const Scene3D = (() => {
       scene.fog = v ? new THREE.FogExp2(0x04060c, 0.016) : null;
     },
     setFog: (color, density) => { scene.fog = density > 0 ? new THREE.FogExp2(color, density) : null; },
+    setBloomEnabled: v => { bloomEnabled = !!v; },
+    setShadowsEnabled: v => { shadowsEnabled = !!v; if (renderer) renderer.shadowMap.enabled = !!v; },
     getFlagTexture: iso => getFlagTexture(iso),
     overrideCamera: v => { cameraOverride = v; },
     setCamera: (px, py, pz, lx, ly, lz) => {

@@ -121,13 +121,13 @@
       <div class="menu-brand">
         <i class="fa-solid fa-shield-halved logo-icon"></i>
         <h1 class="menu-title">GLOBAL FIREPOWER</h1>
-        <div class="menu-subtitle">TACTICAL FRONTS 3D &mdash; CEPHE SAVAŞLARI</div>
+        <div class="menu-subtitle" data-i18n="menu.tagline">TACTICAL FRONTS 3D &mdash; CEPHE SAVAŞLARI</div>
       </div>
 
       <div class="menu-stats-row">
-        <div class="menu-stat"><i class="fa-solid fa-medal text-premium"></i> <span class="medal-count">0</span> Madalya</div>
-        <div class="menu-stat"><i class="fa-solid fa-trophy text-success"></i> <span id="menu-wins">0</span> Zafer</div>
-        <div class="menu-stat"><i class="fa-solid fa-skull text-danger"></i> <span id="menu-losses">0</span> Yenilgi</div>
+        <div class="menu-stat"><i class="fa-solid fa-medal text-premium"></i> <span class="medal-count">0</span> <span data-i18n="menu.medals">Madalya</span></div>
+        <div class="menu-stat"><i class="fa-solid fa-trophy text-success"></i> <span id="menu-wins">0</span> <span data-i18n="menu.wins">Zafer</span></div>
+        <div class="menu-stat"><i class="fa-solid fa-skull text-danger"></i> <span id="menu-losses">0</span> <span data-i18n="menu.losses">Yenilgi</span></div>
       </div>
 
       <div class="menu-modes">
@@ -141,7 +141,7 @@
             <button class="diff-btn active" data-diff="normal">NORMAL<span class="diff-reward">+40 <i class="fa-solid fa-medal"></i></span></button>
             <button class="diff-btn" data-diff="hard">ZOR<span class="diff-reward">+70 <i class="fa-solid fa-medal"></i></span></button>
           </div>
-          <button id="btn-mode-quick" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-play"></i> SAVAŞA GİR</button>
+          <button id="btn-mode-quick" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-play"></i> <span data-i18n="mode.quick.btn">SAVAŞA GİR</span></button>
         </div>
 
         <!-- Campaign -->
@@ -152,7 +152,7 @@
           <div class="campaign-track" id="campaign-track">
             <span class="track-node">1</span><span class="track-node">2</span><span class="track-node">3</span><span class="track-node">4</span><span class="track-node">5</span>
           </div>
-          <button id="btn-mode-campaign" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-flag"></i> HAREKÂTI BAŞLAT</button>
+          <button id="btn-mode-campaign" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-flag"></i> <span data-i18n="mode.campaign.btn">HAREKÂTI BAŞLAT</span></button>
         </div>
 
         <!-- Duel (Hot-seat 2P) -->
@@ -160,7 +160,7 @@
           <div class="mode-icon"><i class="fa-solid fa-user-group"></i></div>
           <h2>DÜELLO <span class="mode-tag">2 OYUNCU</span></h2>
           <p>Aynı ekranda arkadaşına karşı! Sırayla plan yapın, cihazı devredin, cepheler aynı anda çözülsün. Kazanan +15 madalya alır.</p>
-          <button id="btn-mode-duel" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-handshake-angle"></i> DÜELLOYU BAŞLAT</button>
+          <button id="btn-mode-duel" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-handshake-angle"></i> <span data-i18n="mode.duel.btn">DÜELLOYU BAŞLAT</span></button>
         </div>
 
         <!-- Online Ranked -->
@@ -168,7 +168,7 @@
           <div class="mode-icon"><i class="fa-solid fa-globe"></i></div>
           <h2>ONLINE SIRALI <span class="mode-tag mode-tag-live">PvP</span></h2>
           <p>Dünyadaki gerçek oyuncuların ordularına karşı savaş! Ülkeni seç, ordunu kur, Elo sıralamasında yüksel. "Türkiye mi Yunanistan mı?" — kazanan sen belirle.</p>
-          <button id="btn-mode-online" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-earth-europe"></i> SIRALIYA GİR</button>
+          <button id="btn-mode-online" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-earth-europe"></i> <span data-i18n="mode.online.btn">SIRALIYA GİR</span></button>
         </div>
       </div>
 
@@ -178,9 +178,11 @@
       </div>
 
       <div class="menu-footer">
-        <button id="btn-menu-achievements" class="btn btn-secondary"><i class="fa-solid fa-award"></i> Başarımlar (<span id="ach-count">0</span>/<span id="ach-total">0</span>)</button>
-        <button id="btn-menu-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Liderlik Tablosu</button>
-        <button id="btn-menu-sound" class="btn btn-secondary"><i class="fa-solid fa-volume-high"></i> Ses: <span id="sound-state">Açık</span></button>
+        <button id="btn-menu-howto" class="btn btn-secondary"><i class="fa-solid fa-circle-question"></i> <span data-i18n="btn.howto">Nasıl Oynanır?</span></button>
+        <button id="btn-menu-achievements" class="btn btn-secondary"><i class="fa-solid fa-award"></i> <span data-i18n="btn.achievements">Başarımlar</span> (<span id="ach-count">0</span>/<span id="ach-total">0</span>)</button>
+        <button id="btn-menu-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> <span data-i18n="btn.leaderboard">Liderlik Tablosu</span></button>
+        <button id="btn-menu-settings" class="btn btn-secondary"><i class="fa-solid fa-gear"></i> <span data-i18n="btn.settings">Ayarlar</span></button>
+        <button id="btn-menu-sound" class="btn btn-secondary"><i class="fa-solid fa-volume-high"></i> <span data-i18n="btn.sound">Ses</span>: <span id="sound-state">Açık</span></button>
       </div>
     </div>
   </div>
@@ -239,9 +241,10 @@
       <div id="or-rating" class="or-rating"></div>
       <div class="or-record-line">Sıralı sicilin: <span id="or-record">0G 0Y</span></div>
       <div class="online-result-actions">
-        <button id="btn-or-again" class="btn btn-primary btn-glow"><i class="fa-solid fa-rotate-right"></i> TEKRAR</button>
-        <button id="btn-or-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Sıralama</button>
-        <button id="btn-or-menu" class="btn btn-secondary"><i class="fa-solid fa-house"></i> Menü</button>
+        <button id="btn-or-share" class="btn btn-primary btn-glow"><i class="fa-solid fa-share-nodes"></i> <span data-i18n="result.share">Görüntü Oluştur & Paylaş</span></button>
+        <button id="btn-or-again" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> <span data-i18n="result.again">Tekrar</span></button>
+        <button id="btn-or-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> <span data-i18n="btn.leaderboard">Sıralama</span></button>
+        <button id="btn-or-menu" class="btn btn-secondary"><i class="fa-solid fa-house"></i> <span data-i18n="result.menu">Menü</span></button>
       </div>
     </div>
   </div>
@@ -253,6 +256,47 @@
       <p class="leader-sub">Dünyanın en iyi komutanları. Elo puanınla yüksel.</p>
       <div id="leaderboard-list" class="leaderboard-list"></div>
       <button id="btn-close-leaderboard" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-xmark"></i> Kapat</button>
+    </div>
+  </div>
+
+  <!-- Ayarlar -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="leader-modal settings-modal">
+      <h1><i class="fa-solid fa-gear"></i> <span data-i18n="settings.title">AYARLAR</span></h1>
+      <div class="settings-row">
+        <label data-i18n="settings.volume">Ses Seviyesi</label>
+        <input id="set-volume" type="range" min="0" max="100" value="80" />
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.bloom">Bloom (parıltı)</label>
+        <button id="set-bloom" class="toggle-btn"></button>
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.shadows">Gölgeler</label>
+        <button id="set-shadows" class="toggle-btn"></button>
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.lang">Dil / Language</label>
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="tr">🇹🇷 TR</button>
+          <button class="lang-btn" data-lang="en">🇬🇧 EN</button>
+        </div>
+      </div>
+      <p class="settings-note" data-i18n="settings.perf">Performans için Bloom/Gölgeleri kapatabilirsin.</p>
+      <button id="btn-close-settings" class="btn btn-secondary" style="margin-top:16px;"><i class="fa-solid fa-xmark"></i> <span data-i18n="btn.close">Kapat</span></button>
+    </div>
+  </div>
+
+  <!-- Nasıl Oynanır (interaktif rehber) -->
+  <div id="howto-overlay" class="overlay hidden">
+    <div class="leader-modal howto-modal">
+      <h1><i class="fa-solid fa-circle-question"></i> <span data-i18n="howto.title">NASIL OYNANIR</span></h1>
+      <div id="howto-body" class="howto-body"></div>
+      <div class="howto-dots" id="howto-dots"></div>
+      <div class="howto-actions">
+        <button id="btn-howto-skip" class="btn btn-secondary"><span data-i18n="btn.skip">Atla</span></button>
+        <button id="btn-howto-next" class="btn btn-primary btn-glow"><span data-i18n="btn.next">İleri</span></button>
+      </div>
     </div>
   </div>
 
@@ -394,6 +438,7 @@
   <script src="leaders.js"></script>
   <script src="tactics.js"></script>
   <script src="meta.js"></script>
+  <script src="i18n.js"></script>
   <script src="audio.js"></script>
   <script src="scene3d.js"></script>
   <script src="warmap.js"></script>
