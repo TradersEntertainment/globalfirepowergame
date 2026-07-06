@@ -289,7 +289,9 @@ const AudioEngine = (() => {
     enemyHorn() { brassNote(noteFreq("A3"), 0.4, 0, 0.07); brassNote(noteFreq("Ab3"), 0.55, 0.42, 0.08); noise(0.3, { vol: 0.06, freq: 500, slideTo: 120 }); },
     // Gerçek zamanlı muharebe sesleri (kısık, spam-korumalı)
     shot()      { noise(0.06, { vol: 0.05, freq: 3200, type: "bandpass", q: 2, slideTo: 900 }); },
-    boomSmall() { noise(0.28, { vol: 0.09, freq: 500, slideTo: 70 }); tone(75, 0.22, { type: "sine", vol: 0.07, slideTo: 40 }); }
+    boomSmall() { noise(0.28, { vol: 0.09, freq: 500, slideTo: 70 }); tone(75, 0.22, { type: "sine", vol: 0.07, slideTo: 40 }); },
+    artilleryWhistle() { tone(1400, 0.5, { type: "sine", vol: 0.05, slideTo: 300 }); },
+    rout()      { tone(300, 0.4, { type: "sawtooth", vol: 0.08, slideTo: 120 }); }
   };
 
   function play(name) {

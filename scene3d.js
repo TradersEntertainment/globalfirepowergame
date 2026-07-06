@@ -30,6 +30,8 @@ const Scene3D = (() => {
   let slotClickCb = null;
   let hoverSlot = null;
   let externalTicker = null; // gerçek zamanlı savaş simülasyonu her karede çağrılır
+  let tableGroup = null;     // masa öğeleri (muharebe sahasında gizlenir)
+  let cameraOverride = false; // true iken kamerayı dış motor (warmap) sürer
 
   // Kamera hedef durumu
   const camTarget = { pos: new THREE.Vector3(0, 26, 26), look: new THREE.Vector3(0, 0, 0) };
@@ -253,10 +255,11 @@ const Scene3D = (() => {
     if (name !== card.name) name += '…';
     ctx.fillText(name, 148, 76);
 
-    // Rank rozeti + hasar uyarısı (Top 10 → altın yıldızlı)
+    // Rank rozeti + hasar uyarısı (Top 10 → altın yıldızlı). Hasarlıysa kısa rank.
     ctx.font = '700 30px "JetBrains Mono", monospace';
     ctx.fillStyle = legendary ? '#f7c948' : 'rgba(255,255,255,0.45)';
-    ctx.fillText(legendary ? `★ EFSANEVİ #${card.rank}` : `GFP SIRALAMA #${card.rank}`, 148, 122);
+    const rankTxt = legendary ? `★ EFSANEVİ #${card.rank}` : (anyDamaged ? `SIRA #${card.rank}` : `GFP SIRALAMA #${card.rank}`);
+    ctx.fillText(rankTxt, 148, 122);
     if (anyDamaged) {
       ctx.textAlign = 'right';
       ctx.fillStyle = '#ff6655';
@@ -421,12 +424,16 @@ const Scene3D = (() => {
     aiGlow.position.set(0, 8, -16);
     scene.add(aiGlow);
 
+    // Masa öğeleri tek grupta: muharebe sahasında topluca gizlenir
+    tableGroup = new THREE.Group();
+    scene.add(tableGroup);
+
     // Zemin ızgarası (holo masa)
     const grid = new THREE.GridHelper(240, 96, 0x0e5f73, 0x0a2333);
     grid.position.y = -0.02;
     grid.material.transparent = true;
     grid.material.opacity = 0.55;
-    scene.add(grid);
+    tableGroup.add(grid);
 
     // Masa diski
     const table = new THREE.Mesh(
@@ -434,7 +441,7 @@ const Scene3D = (() => {
       new THREE.MeshStandardMaterial({ color: 0x0a1220, metalness: 0.7, roughness: 0.35, emissive: 0x061420, emissiveIntensity: 0.6 })
     );
     table.position.y = -0.3;
-    scene.add(table);
+    tableGroup.add(table);
 
     const tableRing = new THREE.Mesh(
       new THREE.TorusGeometry(17.9, 0.09, 8, 128),
@@ -442,7 +449,7 @@ const Scene3D = (() => {
     );
     tableRing.rotation.x = -Math.PI / 2;
     tableRing.position.y = 0.02;
-    scene.add(tableRing);
+    tableGroup.add(tableRing);
 
     // Orta hat (cephe ayrımı)
     const midLine = new THREE.Mesh(
@@ -451,7 +458,7 @@ const Scene3D = (() => {
     );
     midLine.rotation.x = -Math.PI / 2;
     midLine.position.y = 0.03;
-    scene.add(midLine);
+    tableGroup.add(midLine);
 
     // Yıldız alanı
     const starGeo = new THREE.BufferGeometry();
@@ -591,7 +598,7 @@ const Scene3D = (() => {
         group.add(innerRing);
 
         group.position.set(FRONT_X[front], 0.2, OWNER_Z[owner]);
-        scene.add(group);
+        tableGroup.add(group);
 
         hex.userData.slot = { owner, front };
 
@@ -608,7 +615,7 @@ const Scene3D = (() => {
       );
       label.rotation.x = -Math.PI / 2;
       label.position.set(FRONT_X[front], 0.05, 0);
-      scene.add(label);
+      tableGroup.add(label);
 
       const stripe = new THREE.Mesh(
         new THREE.PlaneGeometry(6.0, 16.5),
@@ -616,7 +623,7 @@ const Scene3D = (() => {
       );
       stripe.rotation.x = -Math.PI / 2;
       stripe.position.set(FRONT_X[front], 0.012, 0);
-      scene.add(stripe);
+      tableGroup.add(stripe);
     });
   }
 
@@ -1340,30 +1347,36 @@ const Scene3D = (() => {
       });
     }
 
-    // Kamera
-    if (camMode === 'menu') {
-      const ang = t * 0.12;
-      camTarget.pos.set(Math.sin(ang) * 24, 11 + Math.sin(t * 0.4) * 1.2, Math.cos(ang) * 24);
-      camTarget.look.set(0, 1.5, 0);
-    } else if (camMode === 'play') {
-      camTarget.pos.set(Math.sin(t * 0.25) * 0.5, 15.2 + Math.sin(t * 0.35) * 0.25, 20.2);
-    }
+    // Kamera — muharebe sahasında dış motor (warmap) sürer
+    if (!cameraOverride) {
+      if (camMode === 'menu') {
+        const ang = t * 0.12;
+        camTarget.pos.set(Math.sin(ang) * 24, 11 + Math.sin(t * 0.4) * 1.2, Math.cos(ang) * 24);
+        camTarget.look.set(0, 1.5, 0);
+      } else if (camMode === 'play') {
+        camTarget.pos.set(Math.sin(t * 0.25) * 0.5, 15.2 + Math.sin(t * 0.35) * 0.25, 20.2);
+      }
 
-    camCurrent.pos.lerp(camTarget.pos, Math.min(1, dt * 3.2));
-    camCurrent.look.lerp(camTarget.look, Math.min(1, dt * 3.2));
+      camCurrent.pos.lerp(camTarget.pos, Math.min(1, dt * 3.2));
+      camCurrent.look.lerp(camTarget.look, Math.min(1, dt * 3.2));
 
-    // Sarsıntı
-    let sx = 0, sy = 0, sz = 0;
-    if (shakeAmp > 0.001) {
-      sx = (Math.random() - 0.5) * shakeAmp;
-      sy = (Math.random() - 0.5) * shakeAmp * 0.7;
-      sz = (Math.random() - 0.5) * shakeAmp * 0.5;
-      shakeAmp *= Math.pow(0.0001, dt); // hızlı sönüm
+      // Sarsıntı
+      let sx = 0, sy = 0, sz = 0;
+      if (shakeAmp > 0.001) {
+        sx = (Math.random() - 0.5) * shakeAmp;
+        sy = (Math.random() - 0.5) * shakeAmp * 0.7;
+        sz = (Math.random() - 0.5) * shakeAmp * 0.5;
+        shakeAmp *= Math.pow(0.0001, dt); // hızlı sönüm
+        if (shakeAmp < 0.001) shakeAmp = 0;
+      }
+
+      camera.position.set(camCurrent.pos.x + sx, camCurrent.pos.y + sy, camCurrent.pos.z + sz);
+      camera.lookAt(camCurrent.look);
+    } else if (shakeAmp > 0.001) {
+      // Override sırasında yalnız sarsıntı sönümü sürer (warmap kamerayı kendi kurar)
+      shakeAmp *= Math.pow(0.0001, dt);
       if (shakeAmp < 0.001) shakeAmp = 0;
     }
-
-    camera.position.set(camCurrent.pos.x + sx, camCurrent.pos.y + sy, camCurrent.pos.z + sz);
-    camera.lookAt(camCurrent.look);
 
     renderer.render(scene, camera);
   }
@@ -1438,10 +1451,44 @@ const Scene3D = (() => {
     getScreenPos,
     // Gerçek zamanlı savaş motoru API'si
     getScene: () => scene,
+    getCamera: () => camera,
+    getCanvas: () => renderer && renderer.domElement,
     setTicker: fn => { externalTicker = fn; },
     worldExplode: (pos, color, count = 24, size = 0.2, speed = 8) =>
       explodeAt(new THREE.Vector3(pos.x, pos.y, pos.z), color, count, size, speed),
-    layout: { FRONT_X, OWNER_Z, CARD_Y }
+    ringPulseAt: (x, z, color, maxScale) => ringPulse(x, z, color, maxScale),
+    layout: { FRONT_X, OWNER_Z, CARD_Y },
+    // Muharebe sahası: masayı gizle/göster, kamerayı devret, zemine ışın at
+    setTableVisible: v => {
+      if (tableGroup) tableGroup.visible = v;
+      ['player', 'ai'].forEach(o => ['land', 'air', 'sea'].forEach(f => {
+        const cm = cardMeshes[o][f];
+        if (cm) cm.visible = v;
+      }));
+    },
+    overrideCamera: v => { cameraOverride = v; },
+    setCamera: (px, py, pz, lx, ly, lz) => {
+      camera.position.set(px, py, pz);
+      camera.lookAt(lx, ly, lz);
+    },
+    raycastGround: (clientX, clientY, planeY = 0) => {
+      pointer.x = (clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const dir = raycaster.ray.direction;
+      if (Math.abs(dir.y) < 1e-5) return null;
+      const dist = (planeY - raycaster.ray.origin.y) / dir.y;
+      if (dist < 0) return null;
+      return raycaster.ray.origin.clone().add(dir.clone().multiplyScalar(dist));
+    },
+    projectToScreen: (x, y, z) => {
+      const v = new THREE.Vector3(x, y, z).project(camera);
+      return {
+        x: (v.x * 0.5 + 0.5) * window.innerWidth,
+        y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+        behind: v.z > 1
+      };
+    }
   };
 })();
 

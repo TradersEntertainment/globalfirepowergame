@@ -238,24 +238,44 @@
     </div>
   </div>
 
+  <!-- Muharebe Üst Durum Çubuğu (birlik sayısı + sayaç) -->
+  <div id="battle-topbar" class="battle-topbar hidden">
+    <div class="bt-side player"><i class="fa-solid fa-user-shield"></i> SEN: <span id="bt-player-count">0</span> birlik</div>
+    <div class="bt-timer"><span id="bt-terrain"></span> · <span id="bt-timer">0:00</span></div>
+    <div class="bt-side ai"><i class="fa-solid fa-robot"></i> DÜŞMAN: <span id="bt-ai-count">0</span> birlik</div>
+  </div>
+
+  <!-- Yerleştirme Paneli (TABS tarzı ordu kurulumu) -->
+  <div id="placement-hud" class="placement-hud hidden">
+    <div class="ph-header">
+      <span class="ph-title"><i class="fa-solid fa-chess-board"></i> ORDUNU KUR — birlik seç, kendi (mavi) bölgene tıkla</span>
+      <span class="ph-timer">Süre: <span id="ph-timer">60</span>s</span>
+    </div>
+    <div id="placement-roster" class="placement-roster"></div>
+    <div class="ph-footer">
+      <span class="ph-hint">Sağ tık: birlik kaldır · Tekerlek: yakınlaş · WASD/oklar: kaydır</span>
+      <button id="btn-deploy-ready" class="btn btn-primary btn-glow"><i class="fa-solid fa-flag-checkered"></i> HAZIR → SAVAŞ</button>
+    </div>
+  </div>
+
   <!-- Gerçek Zamanlı Savaş Komuta Paneli -->
   <div id="battle-hud" class="battle-hud hidden">
     <div class="cp-block">
-      <div class="cp-label"><i class="fa-solid fa-star"></i> KOMUTA PUANI: <span id="cp-val">0</span>/10</div>
+      <div class="cp-label"><i class="fa-solid fa-star"></i> KOMUTA PUANI: <span id="cp-val">0</span>/10 · <span id="battle-sel-info">Birlik seç ve yönlendir</span></div>
       <div class="cp-bar"><div id="cp-fill" class="cp-fill"></div></div>
     </div>
     <div class="stance-row">
-      <button class="stance-btn" data-stance="assault" title="Hasar +%42, savunma -%28. Zayıf düşmanı ezmek için."><i class="fa-solid fa-person-military-rifle"></i> TAARRUZ</button>
-      <button class="stance-btn active" data-stance="hold" title="Dengeli duruş."><i class="fa-solid fa-shield-halved"></i> MEVZİ</button>
-      <button class="stance-btn" data-stance="defense" title="Savunma +%48, hasar -%22. Üstün güce karşı dayan."><i class="fa-solid fa-chess-rook"></i> SAVUNMA</button>
-      <button class="stance-btn" data-stance="retreat" title="Birlikleri kurtar: kaçan birlik kart gücünü korur, cepheyi kaybedersin."><i class="fa-solid fa-flag"></i> RİCAT</button>
+      <button class="stance-btn" data-stance="assault" title="Hasar +%35, savunma düşük. Birlikler düşmanı kovalar."><i class="fa-solid fa-person-military-rifle"></i> TAARRUZ</button>
+      <button class="stance-btn active" data-stance="hold" title="Dengeli: menzilde bekler."><i class="fa-solid fa-shield-halved"></i> MEVZİ</button>
+      <button class="stance-btn" data-stance="defense" title="Savunma +%42. Üstün güce karşı dayan."><i class="fa-solid fa-chess-rook"></i> SAVUNMA</button>
+      <button class="stance-btn" data-stance="retreat" title="Birlikler geri çekilir; kaçanlar kartı yaşatır."><i class="fa-solid fa-flag"></i> RİCAT</button>
     </div>
     <div class="ability-row">
-      <button class="ability-btn" data-ab="airstrike" data-target="enemy" title="Seçtiğin düşman cephesini bombala."><i class="fa-solid fa-jet-fighter-up"></i> Hava Saldırısı <span class="ab-cost">4</span></button>
-      <button class="ability-btn" data-ab="artillery" data-target="enemy" title="5 saniye boyunca seçilen cepheyi döv."><i class="fa-solid fa-burst"></i> Topçu Barajı <span class="ab-cost">3</span></button>
-      <button class="ability-btn" data-ab="reinforce" title="En zayıf cephene taze birlik."><i class="fa-solid fa-truck-arrow-right"></i> Takviye <span class="ab-cost">5</span></button>
-      <button class="ability-btn" data-ab="smoke" data-target="ally" title="Kendi cepheni sise gizle (6sn)."><i class="fa-solid fa-smog"></i> Sis <span class="ab-cost">2</span></button>
-      <button class="ability-btn" data-ab="ew" title="Düşman ateş hızını 5sn yavaşlat."><i class="fa-solid fa-satellite-dish"></i> E-Harp <span class="ab-cost">3</span></button>
+      <button class="ability-btn" data-ab="airstrike" title="Zemine tıkla: o bölgeyi bombala."><i class="fa-solid fa-jet-fighter-up"></i> Hava Saldırısı <span class="ab-cost">4</span></button>
+      <button class="ability-btn" data-ab="artillery" title="Zemine tıkla: 5sn topçu barajı."><i class="fa-solid fa-burst"></i> Topçu <span class="ab-cost">3</span></button>
+      <button class="ability-btn" data-ab="reinforce" title="Zemine tıkla: taze piyade indir."><i class="fa-solid fa-truck-arrow-right"></i> Takviye <span class="ab-cost">5</span></button>
+      <button class="ability-btn" data-ab="smoke" title="Zemine tıkla: sis perdesi."><i class="fa-solid fa-smog"></i> Sis <span class="ab-cost">2</span></button>
+      <button class="ability-btn" data-ab="ew" title="Anında: düşman ateşini yavaşlat."><i class="fa-solid fa-satellite-dish"></i> E-Harp <span class="ab-cost">3</span></button>
     </div>
   </div>
 
@@ -295,7 +315,7 @@
   <script src="meta.js"></script>
   <script src="audio.js"></script>
   <script src="scene3d.js"></script>
-  <script src="battle3d.js"></script>
+  <script src="warmap.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

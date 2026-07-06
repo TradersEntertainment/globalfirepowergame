@@ -10,6 +10,19 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v5.0 "Muharebe Sahası" — TABS Tarzı Savaş Haritası
+
+Savaş başlayınca **sahne komple bir muharebe haritasına dönüşür** (kart masası kaybolur), ordular gerçek zamanlı çarpışır ve oyuncu birliklerini **RTS gibi yönlendirir**. Motor: yeni `warmap.js`.
+
+- **Muharebe Haritası** — ~90×64 birimlik zemin, arazi temasına göre prosedürel dekor (orman ağaçları, çöl kumulları, dağ kayaları, kent blokları, kar), solda animasyonlu su şeridi, iki tarafta karargâh (HQ) bayrakları. Savaş bitince sahne yumuşakça kart masasına geri döner.
+- **Birlik Bütçesi** — Her kuvvet kartının gücü o kuvvetin birlik puanı: Kara kartı → piyade/tanksavar/ZPT/tank/topçu/AA; Hava → jet/helikopter/İHA; Deniz → fırkateyn/hücumbot. **11 birlik tipi**, taş-kağıt-makas kontrlarıyla (tanksavar > tank, tank > piyade, piyade > tanksavar, AA > uçak, jet > helikopter, helikopter > tank...).
+- **TABS Tarzı Yerleştirme** — Alt panelden birlik tipi seç, kendi (mavi) bölgene yerleştir; yarı saydam hayalet imleci takip eder, geçerli alan yeşil/kırmızı gösterir. Sağ tık: birlik kaldır (iade). AI görünür şekilde ordusunu kurar — rakibi okuyup kontra kompozisyon dizmek beceridir. 60sn veya HAZIR ile savaş başlar.
+- **RTS Yönlendirme** — Birliğe tıkla veya boş zeminden sürükle-kutu ile grup seç; zemine tıkla → oraya ilerlesinler (hedef işaretçisi). Sağ tık/ESC seçimi bırakır. Tekerlek = yakınlaş, WASD/oklar/orta-tık sürükle = haritayı kaydır.
+- **Otonom Muharebe** — Birlikler sınıf önceliğine göre hedef seçer, menzilde ateş eder (iz mermileri; topçu/fırkateyn havan yayıyla AoE atar), ölünce devrilip patlar. **Moral**: gücü düşen birlik bozulup (rout) kendi kenarına kaçar — kaçan birlik kartı yaşatır (ricat).
+- **Komuta (savaş içi)** — Duruşlar (Taarruz/Mevzi/Savunma/Ricat) tüm orduyu etkiler; Komuta Puanı yetenekleri artık **zemin noktası** hedefler: Hava Saldırısı, Topçu Barajı, Acil Takviye, Sis Perdesi, Elektronik Harp.
+- **Zafer** — Düşman ordusunu yok et, ya da düşman karargâhına 3 birlikle 5sn bas (bayrak iner) = anında zafer; 5dk zaman aşımında kalan güç kazanır. Sonuç kart katmanına yansır: kalan güç oranı kart gücünü belirler, kaybeden komutan kazananın kalan gücü kadar HP kaybeder (HQ ele geçirme +15 bonus).
+- **Beceri > İstatistik** — Zayıf orduyla iyi yerleşim + doğru duruş + isabetli yetenek zamanlaması, güçlü ama kötü yönetilen orduyu yenebilir.
+
 ## v4.0 "Gerçek Zamanlı Taarruz" — Savaş Sistemi Yeniden Tasarımı
 
 Kartlar artık sayı çarpıştırmıyor. **Her kart sahaya bir ordu çıkarır** ve üç cephe **aynı anda, gerçek zamanlı** çarpışır. Tasarım hedefi: **beceri > istatistik** — doğru anda doğru komut, ham güçten değerlidir.
@@ -75,7 +88,8 @@ python3 -m http.server 8080
 | Dosya | Görev |
 |---|---|
 | `index.html` | 3D sahne + HUD + tüm overlay ekranları |
-| `scene3d.js` | Three.js savaş sahnesi: platformlar, kart meshleri, efektler, kamera, raycast |
+| `scene3d.js` | Three.js sahne: kart masası, meshler, efektler, kamera, zemin raycast |
+| `warmap.js` | Muharebe sahası motoru: harita, birlikler, yerleştirme, RTS, otonom savaş |
 | `app.js` | Oyun döngüsü, savaş çözümü, AI, kampanya, taktikler, HUD |
 | `countries.js` | 30 ülke kartı veri tabanı |
 | `leaders.js` | 8 lider ve pasif yetenekleri |
