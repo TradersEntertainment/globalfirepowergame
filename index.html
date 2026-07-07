@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Firepower: Tactical Fronts (Cephe Savaşları)</title>
+  <title>Global Firepower: Tactical Fronts 3D (Cephe Savaşları)</title>
+  <meta name="description" content="Tam 3D holografik savaş masasında ülke kartları, liderler ve taktiklerle stratejik kart savaşı. Fetih Harekâtı'nda 5 düşman komutanı yen, madalya topla.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
   <!-- Google Fonts: Outfit & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,188 +16,319 @@
 </head>
 <body>
 
-  <!-- Game Container -->
-  <div class="game-container">
-    
-    <!-- Sidebar / Info Panel -->
-    <aside class="sidebar">
-      <div class="brand">
-        <i class="fa-solid fa-shield-halved logo-icon"></i>
-        <h1>GFP: TACTICAL FRONTS</h1>
-        <span class="sub-title">Cephe Savaşları v1.2</span>
-      </div>
+  <!-- 3D Savaş Sahnesi -->
+  <div id="scene-container"></div>
 
-      <!-- Quick Rules -->
-      <div class="sidebar-section rules-card">
-        <h3><i class="fa-solid fa-circle-info"></i> Oyun Kuralları</h3>
-        <ul>
-          <li><strong>3 Cephe:</strong> Kartlarınızı Kara, Hava ve Deniz cephelerine yerleştirin.</li>
-          <li><strong>Kalıcı Hasar:</strong> Savaşta güç kaybeden kartların gücü kalıcı olarak azalır. Elinize alsanız dahi tam gücüne kavuşmaz!</li>
-          <li><strong>Lider Seçimi:</strong> Liderinizin pasif yeteneği tüm savaşın seyrini değiştirebilir.</li>
-          <li><strong><i class="fa-solid fa-triangle-exclamation text-danger"></i> Boş Cephe Cezası:</strong> Cepheniz boş kalırsa ve rakip saldırırsa, saldıran birim doğrudan canınıza (HP) vurur!</li>
-        </ul>
-      </div>
+  <!-- Sinematik katman: vinyet + tarama çizgileri -->
+  <div class="cinematic-overlay"></div>
 
-      <!-- Combat Log -->
-      <div class="sidebar-section logs-container">
-        <h3><i class="fa-solid fa-list-ul"></i> Savaş Günlüğü</h3>
-        <div id="combat-log" class="combat-log">
-          <div class="log-entry system">Oyuna hoş geldiniz! Öncelikle bir Lider seçmelisiniz.</div>
+  <!-- Savaş başlangıcı damgası -->
+  <div id="battle-stinger" class="battle-stinger hidden"><span>⚔ ÇATIŞMA ⚔</span></div>
+
+  <!-- HUD (Komuta Arayüzü) -->
+  <div class="hud" id="hud">
+
+    <!-- Üst Bar: Düşman + Sistem -->
+    <header class="hud-top">
+      <div class="hud-plate ai-plate">
+        <div class="avatar ai-avatar"><i class="fa-solid fa-robot"></i></div>
+        <div class="plate-info">
+          <h2 id="ai-name">Yapay Zeka</h2>
+          <div id="ai-leader-display" class="leader-badge"><span>Seçilmedi</span></div>
+        </div>
+        <div class="hp-block">
+          <div class="hp-bar-wrapper ai-hp">
+            <div id="ai-hp-bar" class="hp-bar" style="width: 100%;"></div>
+          </div>
+          <div class="hp-text"><span id="ai-hp-val">100</span> / <span id="ai-hp-max">100</span> HP</div>
         </div>
       </div>
 
-      <!-- Footer Buttons -->
-      <div class="sidebar-footer">
-        <button id="btn-restart" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Yeniden Başlat</button>
+      <div class="hud-center">
+        <div class="current-round">TUR <span id="round-counter">1</span></div>
+        <div id="campaign-indicator" class="campaign-indicator hidden">
+          <i class="fa-solid fa-map-location-dot"></i> CEPHE <span id="campaign-stage-num">1</span>/5
+        </div>
       </div>
-    </aside>
 
-    <!-- Main Board Area -->
-    <main class="board-area">
-      
-      <!-- AI (Opponent) Area -->
-      <section class="player-zone ai-zone">
-        <div class="player-header">
-          <div class="player-info">
-            <div class="avatar ai-avatar"><i class="fa-solid fa-robot"></i></div>
-            <div>
-              <h2>Yapay Zeka (AI)</h2>
-              <div id="ai-leader-display" class="leader-badge">
-                <!-- Will be rendered dynamically -->
-                <span class="leader-name">Seçilmedi</span>
-              </div>
-            </div>
-          </div>
-          <div class="hp-container">
-            <div class="hp-bar-wrapper">
-              <div id="ai-hp-bar" class="hp-bar" style="width: 100%;"></div>
-            </div>
-            <div class="hp-text"><span id="ai-hp-val">100</span> / 100 HP</div>
-          </div>
-        </div>
+      <div class="hud-sys">
+        <div class="sidebar-medals"><i class="fa-solid fa-medal"></i> <span class="medal-count">0</span></div>
+        <button id="btn-sound" class="btn btn-hud" title="Ses Aç/Kapat"><i class="fa-solid fa-volume-high"></i></button>
+        <button id="btn-restart" class="btn btn-hud" title="Yeniden Başlat"><i class="fa-solid fa-rotate-right"></i></button>
+        <button id="btn-main-menu" class="btn btn-hud" title="Ana Menü"><i class="fa-solid fa-house"></i></button>
+      </div>
+    </header>
 
-        <!-- AI Fronts -->
-        <div class="fronts-container">
-          <!-- Land Front -->
-          <div class="front-slot ai-slot slot-land" data-front="land" id="ai-slot-land">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-trowel-bricks"></i> KARA CEPHESİ</div>
-            <div class="slot-card-container" id="ai-card-land"></div>
-          </div>
-          <!-- Air Front -->
-          <div class="front-slot ai-slot slot-air" data-front="air" id="ai-slot-air">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-jet-fighter"></i> HAVA CEPHESİ</div>
-            <div class="slot-card-container" id="ai-card-air"></div>
-          </div>
-          <!-- Sea Front -->
-          <div class="front-slot ai-slot slot-sea" data-front="sea" id="ai-slot-sea">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-ship"></i> DENİZ CEPHESİ</div>
-            <div class="slot-card-container" id="ai-card-sea"></div>
-          </div>
-        </div>
-      </section>
+    <!-- Sol: Savaş Günlüğü Paneli -->
+    <div class="log-panel" id="log-panel">
+      <div class="log-header" id="log-toggle">
+        <span><i class="fa-solid fa-list-ul"></i> SAVAŞ GÜNLÜĞÜ</span>
+        <i class="fa-solid fa-chevron-down log-chevron"></i>
+      </div>
+      <div id="combat-log" class="combat-log">
+        <div class="log-entry system">Komuta merkezine hoş geldin, Komutan.</div>
+      </div>
+    </div>
 
-      <!-- Center Action / Phase Divider -->
-      <section class="action-zone">
-        <div class="action-divider">
-          <div class="current-round">TUR: <span id="round-counter">1</span></div>
-          <button id="btn-battle" class="btn btn-primary btn-glow" disabled>
-            <span class="btn-text">LİDER SEÇİLMEDİ</span>
-            <i class="fa-solid fa-bolt"></i>
-          </button>
-        </div>
-      </section>
-
-      <!-- Player Area -->
-      <section class="player-zone player-user-zone">
-        <!-- Player Fronts -->
-        <div class="fronts-container">
-          <!-- Land Front -->
-          <div class="front-slot player-slot slot-land" data-front="land" id="player-slot-land">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-trowel-bricks"></i> KARA CEPHESİ</div>
-            <div class="slot-card-container" id="player-card-land"></div>
+    <!-- Alt Bar: Oyuncu + Taktikler + El -->
+    <footer class="hud-bottom">
+      <div class="hud-bottom-row">
+        <div class="hud-plate player-plate">
+          <div class="avatar player-avatar"><i class="fa-solid fa-user-shield"></i></div>
+          <div class="plate-info">
+            <h2 id="player-name">Komutan (Sen)</h2>
+            <div id="player-leader-display" class="leader-badge"><span>Seçilmedi</span></div>
           </div>
-          <!-- Air Front -->
-          <div class="front-slot player-slot slot-air" data-front="air" id="player-slot-air">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-jet-fighter"></i> HAVA CEPHESİ</div>
-            <div class="slot-card-container" id="player-card-air"></div>
-          </div>
-          <!-- Sea Front -->
-          <div class="front-slot player-slot slot-sea" data-front="sea" id="player-slot-sea">
-            <div class="slot-decor"></div>
-            <div class="slot-label"><i class="fa-solid fa-ship"></i> DENİZ CEPHESİ</div>
-            <div class="slot-card-container" id="player-card-sea"></div>
-          </div>
-        </div>
-
-        <div class="player-header border-top">
-          <div class="player-info">
-            <div class="avatar player-avatar"><i class="fa-solid fa-user-shield"></i></div>
-            <div>
-              <h2>Komutan (Sen)</h2>
-              <div id="player-leader-display" class="leader-badge">
-                <!-- Will be rendered dynamically -->
-                <span class="leader-name">Seçilmedi</span>
-              </div>
-            </div>
-          </div>
-          <div class="hp-container">
-            <div class="hp-bar-wrapper">
+          <div class="hp-block">
+            <div class="hp-bar-wrapper player-hp">
               <div id="player-hp-bar" class="hp-bar" style="width: 100%;"></div>
             </div>
             <div class="hp-text"><span id="player-hp-val">100</span> / 100 HP</div>
           </div>
         </div>
 
-        <!-- Player Hand -->
-        <div class="hand-container-wrapper">
-          <div class="hand-label">Elindeki Ülke Kartları (Bir kart seçip yerleştirmek istediğin cepheye tıkla)</div>
-          <div class="hand-and-deck-wrapper" style="display: flex; gap: 20px; align-items: flex-end;">
-            <div id="player-hand" class="hand-container" style="flex-grow: 1;">
-              <!-- Cards will be dynamically rendered here -->
-            </div>
-            <div id="deck-pile" class="deck-pile" title="Deste Yığını">
-              <div class="deck-card-visual card-back">
-                <i class="fa-solid fa-layer-group" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
-                <span style="font-size: 0.65rem; text-transform: uppercase; font-weight: bold; font-family: var(--font-family-mono);">DESTE</span>
-              </div>
+        <div class="tactics-wrapper">
+          <div class="hud-label"><i class="fa-solid fa-chess-knight"></i> TAKTİKLER</div>
+          <div id="tactics-bar" class="tactics-bar"></div>
+        </div>
+
+        <div class="hud-action">
+          <button id="btn-battle" class="btn btn-primary btn-glow btn-battle" disabled>
+            <span class="btn-text">LİDER SEÇİLMEDİ</span>
+            <i class="fa-solid fa-bolt"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="hand-dock">
+        <div class="hud-label hand-hint">ELİNDEKİ KARTLAR — kart seç, 3D sahnede parlayan cepheye tıkla</div>
+        <div class="hand-row">
+          <div id="player-hand" class="hand-container"></div>
+          <div id="deck-pile" class="deck-pile" title="Deste Yığını">
+            <div class="deck-card-visual">
+              <i class="fa-solid fa-layer-group"></i>
+              <span>DESTE</span>
             </div>
           </div>
         </div>
-      </section>
-
-    </main>
-
+      </div>
+    </footer>
   </div>
 
-  <!-- Leader Selection Screen Overlay -->
-  <div id="leader-selection-overlay" class="overlay">
-    <div class="leader-modal">
-      <h1>LİDERİNİ SEÇ</h1>
-      <p class="leader-sub">Liderinin özel yeteneği tüm oyun boyunca cephedeki birliklerini destekleyecektir.</p>
-      
-      <div id="leaders-grid" class="leaders-grid">
-        <!-- Dynamic Leader Cards -->
+  <!-- Main Menu Overlay -->
+  <div id="main-menu-overlay" class="overlay menu-overlay">
+    <div class="menu-modal">
+      <div class="menu-brand">
+        <i class="fa-solid fa-shield-halved logo-icon"></i>
+        <h1 class="menu-title">GLOBAL FIREPOWER</h1>
+        <div class="menu-subtitle" data-i18n="menu.tagline">TACTICAL FRONTS 3D &mdash; CEPHE SAVAŞLARI</div>
+      </div>
+
+      <div class="menu-stats-row">
+        <div class="menu-stat"><i class="fa-solid fa-medal text-premium"></i> <span class="medal-count">0</span> <span data-i18n="menu.medals">Madalya</span></div>
+        <div class="menu-stat"><i class="fa-solid fa-trophy text-success"></i> <span id="menu-wins">0</span> <span data-i18n="menu.wins">Zafer</span></div>
+        <div class="menu-stat"><i class="fa-solid fa-skull text-danger"></i> <span id="menu-losses">0</span> <span data-i18n="menu.losses">Yenilgi</span></div>
+      </div>
+
+      <div class="menu-modes">
+        <!-- Quick Battle -->
+        <div class="mode-card">
+          <div class="mode-icon"><i class="fa-solid fa-bolt"></i></div>
+          <h2>HIZLI SAVAŞ</h2>
+          <p>Tek maçlık meydan okuma. Zorluğu seç, lideri seç, savaş. Zafer = Madalya.</p>
+          <div class="diff-selector" id="diff-selector">
+            <button class="diff-btn" data-diff="easy">KOLAY<span class="diff-reward">+20 <i class="fa-solid fa-medal"></i></span></button>
+            <button class="diff-btn active" data-diff="normal">NORMAL<span class="diff-reward">+40 <i class="fa-solid fa-medal"></i></span></button>
+            <button class="diff-btn" data-diff="hard">ZOR<span class="diff-reward">+70 <i class="fa-solid fa-medal"></i></span></button>
+          </div>
+          <button id="btn-mode-quick" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-play"></i> <span data-i18n="mode.quick.btn">SAVAŞA GİR</span></button>
+        </div>
+
+        <!-- Campaign -->
+        <div class="mode-card mode-campaign">
+          <div class="mode-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+          <h2>FETİH HAREKÂTI</h2>
+          <p>8 düşman ulusuna karşı zincirleme fetih. Her aşama farklı bir ulusal doktrin — kontra kurmayı öğren! Canın cepheler arası taşınır; her zafer sonrası harekât kartı seç. En iyi ilerlemen: <strong><span id="campaign-best">0</span>/<span id="campaign-total">8</span></strong></p>
+          <div class="campaign-track" id="campaign-track"></div>
+          <button id="btn-mode-campaign" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-flag"></i> <span data-i18n="mode.campaign.btn">HAREKÂTI BAŞLAT</span></button>
+        </div>
+
+        <!-- Duel (Hot-seat 2P) -->
+        <div class="mode-card mode-duel">
+          <div class="mode-icon"><i class="fa-solid fa-user-group"></i></div>
+          <h2>DÜELLO <span class="mode-tag">2 OYUNCU</span></h2>
+          <p>Aynı ekranda arkadaşına karşı! Sırayla plan yapın, cihazı devredin, cepheler aynı anda çözülsün. Kazanan +15 madalya alır.</p>
+          <button id="btn-mode-duel" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-handshake-angle"></i> <span data-i18n="mode.duel.btn">DÜELLOYU BAŞLAT</span></button>
+        </div>
+
+        <!-- Online Ranked -->
+        <div class="mode-card mode-online">
+          <div class="mode-icon"><i class="fa-solid fa-globe"></i></div>
+          <h2>ONLINE SIRALI <span class="mode-tag mode-tag-live">PvP</span></h2>
+          <p>Dünyadaki gerçek oyuncuların ordularına karşı savaş! Ülkeni seç, ordunu kur, Elo sıralamasında yüksel. "Türkiye mi Yunanistan mı?" — kazanan sen belirle.</p>
+          <button id="btn-mode-online" class="btn btn-primary btn-glow mode-start-btn"><i class="fa-solid fa-earth-europe"></i> <span data-i18n="mode.online.btn">SIRALIYA GİR</span></button>
+        </div>
+      </div>
+
+      <div class="menu-rules">
+        <i class="fa-solid fa-circle-info"></i>
+        Kartlarını 3 cepheye (Kara / Hava / Deniz) yerleştir. Güç kaybı kalıcıdır. Boş cepheye saldıran birim doğrudan HP'ne vurur. Her tur 1 taktik kartı oynayabilirsin.
+      </div>
+
+      <div class="menu-footer">
+        <button id="btn-menu-howto" class="btn btn-secondary"><i class="fa-solid fa-circle-question"></i> <span data-i18n="btn.howto">Nasıl Oynanır?</span></button>
+        <button id="btn-menu-achievements" class="btn btn-secondary"><i class="fa-solid fa-award"></i> <span data-i18n="btn.achievements">Başarımlar</span> (<span id="ach-count">0</span>/<span id="ach-total">0</span>)</button>
+        <button id="btn-menu-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> <span data-i18n="btn.leaderboard">Liderlik Tablosu</span></button>
+        <button id="btn-menu-settings" class="btn btn-secondary"><i class="fa-solid fa-gear"></i> <span data-i18n="btn.settings">Ayarlar</span></button>
+        <button id="btn-menu-sound" class="btn btn-secondary"><i class="fa-solid fa-volume-high"></i> <span data-i18n="btn.sound">Ses</span>: <span id="sound-state">Açık</span></button>
       </div>
     </div>
   </div>
 
-  <!-- Mock Store / Purchase Modal -->
+  <!-- Achievements Overlay -->
+  <div id="achievements-overlay" class="overlay hidden">
+    <div class="leader-modal">
+      <h1><i class="fa-solid fa-award"></i> BAŞARIMLAR</h1>
+      <p class="leader-sub">Savaş alanındaki efsanevi anların kalıcı kaydı.</p>
+      <div id="achievements-grid" class="achievements-grid"></div>
+      <button id="btn-close-achievements" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-xmark"></i> Kapat</button>
+    </div>
+  </div>
+
+  <!-- Online: Profil (ad + ülke) -->
+  <div id="online-profile-overlay" class="overlay hidden">
+    <div class="leader-modal online-profile-modal">
+      <h1><i class="fa-solid fa-earth-europe"></i> ONLINE SIRALI</h1>
+      <p class="leader-sub">Komutan adını ve ülkeni seç. Ordun bu bayrak altında savaşacak — dünya seni bu kimlikle tanıyacak. <span id="online-rating-badge" class="online-rating-badge">⭐ 1000</span></p>
+      <div class="online-name-row">
+        <label for="online-name-input"><i class="fa-solid fa-user"></i> Komutan Adı</label>
+        <input id="online-name-input" type="text" maxlength="18" placeholder="ör. GaziKomutan" />
+      </div>
+      <div class="online-country-label"><i class="fa-solid fa-flag"></i> Ülkeni Seç</div>
+      <div id="online-country-grid" class="online-country-grid"></div>
+      <div class="online-profile-actions">
+        <button id="btn-online-back" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Geri</button>
+        <button id="btn-online-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> Sıralama</button>
+        <button id="btn-online-play" class="btn btn-primary btn-glow"><i class="fa-solid fa-play"></i> SAVAŞ!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Eşleşme tanıtımı -->
+  <div id="online-matchup-overlay" class="overlay hidden">
+    <div class="matchup-card">
+      <div class="mu-side mu-me">
+        <div id="mu-my-flag" class="mu-flag">🇹🇷</div>
+        <div id="mu-my-name" class="mu-name">Sen</div>
+        <div id="mu-my-rating" class="mu-rating">⭐ 1000</div>
+      </div>
+      <div class="mu-vs">VS</div>
+      <div class="mu-side mu-op">
+        <div id="mu-op-flag" class="mu-flag">🇬🇷</div>
+        <div id="mu-op-name" class="mu-name">Rakip</div>
+        <div id="mu-op-rating" class="mu-rating">⭐ 1000</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Sonuç -->
+  <div id="online-result-overlay" class="overlay hidden">
+    <div class="online-result-modal">
+      <h1 id="or-title">ZAFER!</h1>
+      <div id="or-matchup" class="or-matchup"></div>
+      <div id="or-rating" class="or-rating"></div>
+      <div class="or-record-line">Sıralı sicilin: <span id="or-record">0G 0Y</span></div>
+      <div class="online-result-actions">
+        <button id="btn-or-share" class="btn btn-primary btn-glow"><i class="fa-solid fa-share-nodes"></i> <span data-i18n="result.share">Görüntü Oluştur & Paylaş</span></button>
+        <button id="btn-or-again" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> <span data-i18n="result.again">Tekrar</span></button>
+        <button id="btn-or-leaderboard" class="btn btn-secondary"><i class="fa-solid fa-ranking-star"></i> <span data-i18n="btn.leaderboard">Sıralama</span></button>
+        <button id="btn-or-menu" class="btn btn-secondary"><i class="fa-solid fa-house"></i> <span data-i18n="result.menu">Menü</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online: Liderlik Tablosu -->
+  <div id="leaderboard-overlay" class="overlay hidden">
+    <div class="leader-modal leaderboard-modal">
+      <h1><i class="fa-solid fa-ranking-star"></i> LİDERLİK TABLOSU</h1>
+      <p class="leader-sub">Dünyanın en iyi komutanları. Elo puanınla yüksel.</p>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
+      <button id="btn-close-leaderboard" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-xmark"></i> Kapat</button>
+    </div>
+  </div>
+
+  <!-- Ayarlar -->
+  <div id="settings-overlay" class="overlay hidden">
+    <div class="leader-modal settings-modal">
+      <h1><i class="fa-solid fa-gear"></i> <span data-i18n="settings.title">AYARLAR</span></h1>
+      <div class="settings-row">
+        <label data-i18n="settings.volume">Ses Seviyesi</label>
+        <input id="set-volume" type="range" min="0" max="100" value="80" />
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.bloom">Bloom (parıltı)</label>
+        <button id="set-bloom" class="toggle-btn"></button>
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.shadows">Gölgeler</label>
+        <button id="set-shadows" class="toggle-btn"></button>
+      </div>
+      <div class="settings-row">
+        <label data-i18n="settings.lang">Dil / Language</label>
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="tr">🇹🇷 TR</button>
+          <button class="lang-btn" data-lang="en">🇬🇧 EN</button>
+        </div>
+      </div>
+      <p class="settings-note" data-i18n="settings.perf">Performans için Bloom/Gölgeleri kapatabilirsin.</p>
+      <button id="btn-close-settings" class="btn btn-secondary" style="margin-top:16px;"><i class="fa-solid fa-xmark"></i> <span data-i18n="btn.close">Kapat</span></button>
+    </div>
+  </div>
+
+  <!-- Nasıl Oynanır (interaktif rehber) -->
+  <div id="howto-overlay" class="overlay hidden">
+    <div class="leader-modal howto-modal">
+      <h1><i class="fa-solid fa-circle-question"></i> <span data-i18n="howto.title">NASIL OYNANIR</span></h1>
+      <div id="howto-body" class="howto-body"></div>
+      <div class="howto-dots" id="howto-dots"></div>
+      <div class="howto-actions">
+        <button id="btn-howto-skip" class="btn btn-secondary"><span data-i18n="btn.skip">Atla</span></button>
+        <button id="btn-howto-next" class="btn btn-primary btn-glow"><span data-i18n="btn.next">İleri</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leader Selection Screen Overlay -->
+  <div id="leader-selection-overlay" class="overlay hidden">
+    <div class="leader-modal">
+      <h1 id="leader-select-title">LİDERİNİ SEÇ</h1>
+      <p class="leader-sub">Liderinin özel yeteneği tüm savaş boyunca birliklerini destekleyecek. Kilitli liderler madalya ile açılır.</p>
+      <div id="leaders-grid" class="leaders-grid"></div>
+      <button id="btn-back-to-menu" class="btn btn-secondary" style="margin-top: 20px;"><i class="fa-solid fa-arrow-left"></i> Menüye Dön</button>
+    </div>
+  </div>
+
+  <!-- Medal Unlock / Purchase Modal -->
   <div id="purchase-overlay" class="overlay hidden">
     <div class="purchase-modal">
-      <i class="fa-solid fa-cart-shopping store-icon"></i>
-      <h2>PREMIUM KİLİT AÇILMASI</h2>
-      <p id="purchase-text">Bu liderin özel güçlerini kullanmak için satın alma işlemini onaylamalısınız.</p>
-      <div class="purchase-price" id="purchase-price-tag">$0.99</div>
-      
+      <i class="fa-solid fa-medal store-icon"></i>
+      <h2>LİDER KİLİDİNİ AÇ</h2>
+      <p id="purchase-text">Bu lideri komuta etmek için Şeref Madalyası harcamalısın.</p>
+      <div class="purchase-price"><span id="purchase-price-tag">0</span> <i class="fa-solid fa-medal"></i></div>
+      <div class="purchase-balance">Mevcut: <span class="medal-count">0</span> Madalya</div>
       <div class="purchase-actions">
-        <button id="btn-cancel-buy" class="btn btn-secondary">İptal Et</button>
-        <button id="btn-confirm-buy" class="btn btn-primary btn-glow">Simüle Et ve Kilidi Aç</button>
+        <button id="btn-cancel-buy" class="btn btn-secondary">Vazgeç</button>
+        <button id="btn-confirm-buy" class="btn btn-primary btn-glow"><i class="fa-solid fa-unlock"></i> Kilidi Aç</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Campaign Perk Selection Overlay -->
+  <div id="perk-overlay" class="overlay hidden">
+    <div class="leader-modal">
+      <h1 id="perk-title"><i class="fa-solid fa-flag-checkered"></i> CEPHE DÜŞTÜ!</h1>
+      <p class="leader-sub" id="perk-sub">Bir sonraki cepheye geçmeden önce harekât desteğini seç:</p>
+      <div id="perk-grid" class="perk-grid"></div>
     </div>
   </div>
 
@@ -206,16 +339,109 @@
       <h1 id="game-over-title">TEBRİKLER!</h1>
       <p id="game-over-msg">Yapay zekayı mağlup ettin ve küresel askeri hakimiyet kurdun!</p>
       <div class="game-over-stats">
-        <div><strong>Tur Sayısı:</strong> <span id="stat-rounds">0</span></div>
-        <div><strong>Kalan Canın:</strong> <span id="stat-hp">0</span> HP</div>
+        <div><strong>Tur:</strong> <span id="stat-rounds">0</span></div>
+        <div><strong>Kalan HP:</strong> <span id="stat-hp">0</span></div>
+        <div class="medal-earned"><strong>Madalya:</strong> +<span id="stat-medals-earned">0</span> <i class="fa-solid fa-medal"></i></div>
       </div>
-      <button id="btn-play-again" class="btn btn-primary"><i class="fa-solid fa-gamepad"></i> Tekrar Oyna</button>
+      <div class="purchase-actions">
+        <button id="btn-go-menu" class="btn btn-secondary"><i class="fa-solid fa-house"></i> Ana Menü</button>
+        <button id="btn-play-again" class="btn btn-primary"><i class="fa-solid fa-gamepad"></i> Tekrar Oyna</button>
+      </div>
     </div>
   </div>
 
+  <!-- Muharebe Üst Durum Çubuğu (birlik sayısı + sayaç) -->
+  <div id="battle-topbar" class="battle-topbar hidden">
+    <div class="bt-side player"><i class="fa-solid fa-user-shield"></i> SEN: <span id="bt-player-count">0</span> birlik</div>
+    <div class="bt-timer"><span id="bt-terrain"></span> · <span id="bt-timer">0:00</span></div>
+    <div class="bt-side ai"><i class="fa-solid fa-robot"></i> DÜŞMAN: <span id="bt-ai-count">0</span> birlik</div>
+  </div>
+
+  <!-- Yerleştirme Paneli (TABS tarzı ordu kurulumu) -->
+  <div id="placement-hud" class="placement-hud hidden">
+    <div class="ph-header">
+      <span class="ph-title"><i class="fa-solid fa-chess-board"></i> ORDUNU KUR <span class="ph-sub">— birlik seç, mavi bölgene tıkla</span></span>
+      <span class="ph-timer">Süre: <span id="ph-timer">60</span>s</span>
+    </div>
+    <div id="ph-budget" class="ph-budget" title="Her kuvvetin ayrı güç bütçesi var. Birlik yerleştirdikçe azalır."></div>
+    <div id="placement-roster" class="placement-roster"></div>
+    <div class="ph-footer">
+      <span class="ph-hint">Sağ tık: birlik kaldır · Tekerlek: yakınlaş · WASD/oklar: kaydır</span>
+      <button id="btn-deploy-ready" class="btn btn-primary btn-glow"><i class="fa-solid fa-flag-checkered"></i> HAZIR → SAVAŞ</button>
+    </div>
+  </div>
+
+  <!-- Gerçek Zamanlı Savaş Komuta Paneli -->
+  <div id="battle-hud" class="battle-hud hidden">
+    <div class="cp-block">
+      <div class="cp-label"><i class="fa-solid fa-star"></i> KOMUTA PUANI: <span id="cp-val">0</span>/10 · <span id="battle-sel-info">Birlik seç ve yönlendir</span></div>
+      <div class="cp-bar"><div id="cp-fill" class="cp-fill"></div></div>
+    </div>
+    <div class="stance-row">
+      <button class="stance-btn" data-stance="assault" title="Hasar +%35, savunma düşük. Birlikler düşmanı kovalar."><i class="fa-solid fa-person-military-rifle"></i> TAARRUZ</button>
+      <button class="stance-btn active" data-stance="hold" title="Dengeli: menzilde bekler."><i class="fa-solid fa-shield-halved"></i> MEVZİ</button>
+      <button class="stance-btn" data-stance="defense" title="Savunma +%42. Üstün güce karşı dayan."><i class="fa-solid fa-chess-rook"></i> SAVUNMA</button>
+      <button class="stance-btn" data-stance="retreat" title="Birlikler geri çekilir; kaçanlar kartı yaşatır."><i class="fa-solid fa-flag"></i> RİCAT</button>
+    </div>
+    <div class="ability-row">
+      <button class="ability-btn" data-ab="airstrike" title="Zemine tıkla: o bölgeyi bombala."><i class="fa-solid fa-jet-fighter-up"></i> Hava Saldırısı <span class="ab-cost">4</span></button>
+      <button class="ability-btn" data-ab="artillery" title="Zemine tıkla: 5sn topçu barajı."><i class="fa-solid fa-burst"></i> Topçu <span class="ab-cost">3</span></button>
+      <button class="ability-btn" data-ab="reinforce" title="Zemine tıkla: taze piyade indir."><i class="fa-solid fa-truck-arrow-right"></i> Takviye <span class="ab-cost">5</span></button>
+      <button class="ability-btn" data-ab="smoke" title="Zemine tıkla: sis perdesi."><i class="fa-solid fa-smog"></i> Sis <span class="ab-cost">2</span></button>
+      <button class="ability-btn" data-ab="ew" title="Anında: düşman ateşini yavaşlat."><i class="fa-solid fa-satellite-dish"></i> E-Harp <span class="ab-cost">3</span></button>
+    </div>
+  </div>
+
+  <!-- Muharebe Pankartı (arazi / olay / momentum duyuruları) -->
+  <div id="battle-banner" class="battle-banner hidden">
+    <div id="bb-title" class="bb-title"></div>
+    <div id="bb-sub" class="bb-sub"></div>
+  </div>
+
+  <!-- Duel Handoff Overlay (cihaz devri) -->
+  <div id="handoff-overlay" class="overlay hidden">
+    <div class="handoff-modal">
+      <i class="fa-solid fa-right-left handoff-icon"></i>
+      <h1 id="handoff-title">SIRA: KOMUTAN 2</h1>
+      <p id="handoff-sub">Cihazı diğer komutana ver. Rakip planını görmesin!</p>
+      <button id="btn-handoff-ready" class="btn btn-primary btn-glow"><i class="fa-solid fa-play"></i> HAZIRIM</button>
+    </div>
+  </div>
+
+  <!-- Kart İşlem Menüsü (geri al / imha et) -->
+  <div id="card-action-popup" class="card-action-popup hidden">
+    <div class="cap-title"><i class="fa-solid fa-triangle-exclamation"></i> Birlik hasarlı!</div>
+    <button id="cap-take" class="btn btn-secondary"><i class="fa-solid fa-hand"></i> Ele Al</button>
+    <button id="cap-scrap" class="btn btn-danger"><i class="fa-solid fa-trash"></i> İmha Et</button>
+    <button id="cap-cancel" class="btn btn-secondary btn-cap-cancel"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
+  <!-- Achievement Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Bilgi kartı (birim/ülke doktrini hover tooltip) -->
+  <div id="game-tooltip" class="game-tooltip hidden"></div>
+
   <!-- Scripts -->
+  <script src="vendor/three.min.js"></script>
+  <!-- Post-processing (bloom) — r128 UMD, THREE global'e eklenir -->
+  <script src="vendor/CopyShader.js"></script>
+  <script src="vendor/LuminosityHighPassShader.js"></script>
+  <script src="vendor/EffectComposer.js"></script>
+  <script src="vendor/RenderPass.js"></script>
+  <script src="vendor/ShaderPass.js"></script>
+  <script src="vendor/MaskPass.js"></script>
+  <script src="vendor/UnrealBloomPass.js"></script>
+  <script src="worldmap.js"></script>
   <script src="countries.js"></script>
   <script src="leaders.js"></script>
+  <script src="tactics.js"></script>
+  <script src="meta.js"></script>
+  <script src="i18n.js"></script>
+  <script src="audio.js"></script>
+  <script src="scene3d.js"></script>
+  <script src="warmap.js"></script>
+  <script src="net.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
