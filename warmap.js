@@ -29,7 +29,7 @@ const Warmap = (() => {
     { id: 'desert',   name: 'ÇÖL',    icon: '🏜', ground: 0xb89258, accent: 0xd4b072, sky: 0xd8c69a, horizon: 0x8a7048, desc: 'Açık arazi: Taarruz güçlü, siper az.', assaultBonus: 1.12, waterStyles: ['coast', 'river', 'channel'] },
     { id: 'forest',   name: 'ORMAN',  icon: '🌲', ground: 0x3c5a2c, accent: 0x4f7038, sky: 0x9fc4e0, horizon: 0x314a40, desc: 'Sık orman: Savunma güçlü, hava zayıf.', defenseBonus: 1.15, airMod: 0.9, cover: true, waterStyles: ['river', 'coast'] },
     { id: 'mountain', name: 'DAĞ',    icon: '⛰', ground: 0x6a6a70, accent: 0x84848c, sky: 0xaebccb, horizon: 0x4a4a54, desc: 'Kayalık: Zırh yavaş, hava üstünlüğü değerli.', landMod: 0.9, airMod: 1.1, waterStyles: ['river', 'channel'] },
-    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xdde6ef, accent: 0xf2f7fc, sky: 0xcdd8e6, horizon: 0x9fb0c4, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88, waterStyles: ['coast', 'river'] },
+    { id: 'snow',     name: 'KAR',    icon: '❄', ground: 0xc4d2e2, accent: 0xdbe6f1, sky: 0xcdd8e6, horizon: 0x9fb0c4, desc: 'Kar fırtınası: Menziller kısaldı.', rangeMod: 0.88, waterStyles: ['coast', 'river'] },
     { id: 'urban',    name: 'ŞEHİR',  icon: '🏙', ground: 0x646771, accent: 0x7c808b, sky: 0x8f9db0, horizon: 0x3e414a, desc: 'Kent savaşı: Piyade kral, tanklar riskli.', infBonus: 1.2, tankMod: 0.85, cover: true, waterStyles: ['channel', 'coast'] }
   ];
 
@@ -131,6 +131,7 @@ const Warmap = (() => {
   // 'channel' (eğik su bandı + köprü). river/channel haritayı böler ama köprü chokepoint bırakır.
   // Her düzen tüm z boyunca suya sahip → gemiler iki tarafın bölgesinde de konabilir.
   let forcedWaterStyle = null; // test için su düzenini sabitle
+  let forcedTerrainId = null;  // test için araziyi sabitle
   function buildWaterLayout(terrain) {
     const styles = terrain.waterStyles || ['coast', 'river', 'channel'];
     const style = forcedWaterStyle || styles[Math.floor(Math.random() * styles.length)];
@@ -254,9 +255,48 @@ const Warmap = (() => {
   // ==========================================================================
   // Harita Üretimi
   // ==========================================================================
+
+  // --- Prosedürel yükseklik (diorama arazi) ---
+  let terrainSeed = 0;
+  let terrainAmp = 1.7;
+  function hash2(x, z) { const s = Math.sin(x * 127.1 + z * 311.7 + terrainSeed) * 43758.5453; return s - Math.floor(s); }
+  function vnoise(x, z) {
+    const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+    const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+    const a = hash2(xi, zi), b = hash2(xi + 1, zi), c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1);
+    return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+  }
+  function fbm(x, z) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < 4; i++) { s += a * vnoise(x * f, z * f); f *= 2; a *= 0.5; } return s; }
+  // Oynanışı koru: koridor (z~0) ve kenarlar düz; tepeler yerleştirme bölgelerinde yumuşak
+  function terrainHeightAt(x, z) {
+    if (waterAt(x, z)) return -0.55; // su yatağı çukur (şader su üstünü örter)
+    const corridor = Math.min(1, Math.abs(z) / 9);           // z~0 düz kalsın
+    const n = fbm(x * 0.055 + 12.3, z * 0.055 + 7.1) - 0.5;  // -0.5..0.5
+    const ridge = TERRAIN_REF && TERRAIN_REF.id === 'mountain' ? 1.7 : 1;
+    return n * terrainAmp * ridge * (0.3 + 0.7 * corridor);
+  }
+  function terrainHeightAtSafe(x, z) { try { return terrainHeightAt(x, z); } catch (e) { return 0; } }
+  let TERRAIN_REF = null; // aktif arazi (renk paleti için)
+  // Yükseklik + eğim + temaya göre painterly vertex renk
+  function terrainColorAt(x, z, h, slope) {
+    const t = TERRAIN_REF || {};
+    const c = new THREE.Color(t.ground || 0x6a7d4a);
+    const acc = new THREE.Color(t.accent || 0x88a05a);
+    const col = c.clone().lerp(acc, 0.35 + 0.4 * fbm(x * 0.12, z * 0.12));
+    // eğimli yerlerde kaya/toprak; tepelerde açık; çukurda koyu
+    const rock = new THREE.Color(t.id === 'snow' ? 0x8fa0b4 : t.id === 'desert' ? 0x9c8358 : 0x6b6152);
+    col.lerp(rock, Math.min(0.7, slope * 1.6));
+    col.offsetHSL(0, 0, (h * 0.05) + (fbm(x * 0.3 + 3, z * 0.3 + 5) - 0.5) * 0.06);
+    if (t.id === 'snow' && h > 0.4) col.lerp(new THREE.Color(0xffffff), 0.4);
+    return col;
+  }
+
   function buildMap(terrain) {
     mapGroup = new THREE.Group();
     rootGroup.add(mapGroup);
+    terrainSeed = Math.random() * 1000;
+    TERRAIN_REF = terrain;
+    terrainAmp = terrain.id === 'urban' ? 1.0 : 1.7;
 
     // Gökyüzü kubbesi (arazi tonuna uyan degrade) + derinlik sisi
     const skyColor = terrain.sky || 0x9fb8d8;
@@ -272,41 +312,92 @@ const Warmap = (() => {
     mapGroup.add(sky);
     Scene3D.setFog(terrain.horizon || 0x2a3446, 0.006);
 
-    // Zemin — prosedürel doku (çim/kum/asfalt lekeleri + yollar + gürültü)
-    const groundTex = buildGroundTexture(terrain);
-    const groundMat = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.98, metalness: 0.0 });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP.maxX - MAP.minX, MAP.maxZ - MAP.minZ, 1, 1), groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set((MAP.minX + MAP.maxX) / 2, 0, 0);
-    ground.receiveShadow = true;
-    mapGroup.add(ground);
-
-    // Su düzeni (araziye göre kıyı/nehir/kanal) — hücre-tabanlı birleşik mesh
+    // Su düzenini ÖNCE kur — arazi yüksekliği su-farkında (su yatağı çukur)
     S = S || {};
     waterLayout = buildWaterLayout(terrain);
     if (S) S.water = waterLayout;
-    const step = 2, wv = [], wIdx = [];
+
+    // Zemin — alt bölünmüş yükseklik geometrisi + painterly vertex renk (diorama)
+    const GW = MAP.maxX - MAP.minX, GH = MAP.maxZ - MAP.minZ;
+    const gGeo = new THREE.PlaneGeometry(GW, GH, 96, 72);
+    gGeo.rotateX(-Math.PI / 2); // XZ düzlemine yatır (y=yukarı); harita merkezi orijin
+    const gp = gGeo.attributes.position;
+    for (let i = 0; i < gp.count; i++) gp.setY(i, terrainHeightAt(gp.getX(i), gp.getZ(i)));
+    const gcol = new Float32Array(gp.count * 3);
+    for (let i = 0; i < gp.count; i++) {
+      const x = gp.getX(i), z = gp.getZ(i), h = gp.getY(i);
+      const hx = terrainHeightAt(x + 1, z) - terrainHeightAt(x - 1, z);
+      const hz = terrainHeightAt(x, z + 1) - terrainHeightAt(x, z - 1);
+      const slope = Math.min(1, Math.hypot(hx, hz) * 0.7);
+      const col = terrainColorAt(x, z, h, slope);
+      gcol[i * 3] = col.r; gcol[i * 3 + 1] = col.g; gcol[i * 3 + 2] = col.b;
+    }
+    gGeo.setAttribute('color', new THREE.BufferAttribute(gcol, 3));
+    gGeo.computeVertexNormals();
+    const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+    const ground = new THREE.Mesh(gGeo, groundMat);
+    ground.receiveShadow = true;
+    mapGroup.add(ground);
+    mapGroup.userData.ground = ground;
+
+    // Diorama kaidesi — altında koyu toprak/kaya bloğu (yüzen ada hissi)
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(GW + 1.2, 6, GH + 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x2b2420, roughness: 1, flatShading: true })
+    );
+    base.position.y = -5.2; base.receiveShadow = true; // üst yüzey arazi minimumunun (~-1.5) altında → z-fighting yok
+    mapGroup.add(base);
+
+    // Su — ShaderMaterial (derinlik rengi + dalga + kıyı köpüğü + fresnel + specular)
+    const step = 2, wv = [], wIdx = [], wShore = [];
     let vi = 0;
     for (let cx = MAP.minX; cx < MAP.maxX; cx += step) {
       for (let cz = MAP.minZ; cz < MAP.maxZ; cz += step) {
         if (!waterAt(cx + step / 2, cz + step / 2)) continue;
-        const x0 = cx, x1 = cx + step, z0 = cz, z1 = cz + step;
-        wv.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1);
+        const pts = [[cx, cz], [cx + step, cz], [cx + step, cz + step], [cx, cz + step]];
+        for (const [px, pz] of pts) {
+          wv.push(px, 0, pz);
+          let land = 0; for (const d of [[3, 0], [-3, 0], [0, 3], [0, -3]]) if (!waterAt(px + d[0], pz + d[1])) land++;
+          wShore.push(land / 4);
+        }
         wIdx.push(vi, vi + 2, vi + 1, vi, vi + 3, vi + 2);
         vi += 4;
       }
     }
     const wg = new THREE.BufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3));
+    wg.setAttribute('aShore', new THREE.Float32BufferAttribute(wShore, 1));
     wg.setIndex(wIdx);
-    wg.computeVertexNormals();
-    const water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({
-      color: 0x1b4a86, transparent: true, opacity: 0.9, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide
-    }));
-    water.position.y = 0.06;
+    const waterMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uShallow: { value: new THREE.Color(0x3fb7c4) },
+        uDeep: { value: new THREE.Color(0x11396e) },
+        uFoam: { value: new THREE.Color(0xeaf6ff) },
+        uSun: { value: new THREE.Vector3(28, 46, 22) }
+      },
+      vertexShader: `uniform float uTime; attribute float aShore; varying float vShore; varying vec3 vWorld; varying vec3 vN;
+        void main(){ vShore=aShore; vec3 p=position;
+          float wx=sin(p.x*0.5+uTime*1.6), wz=sin(p.z*0.6+uTime*1.3);
+          p.y += wx*0.09 + wz*0.07;
+          vN = normalize(vec3(-cos(p.x*0.5+uTime*1.6)*0.045, 1.0, -cos(p.z*0.6+uTime*1.3)*0.042));
+          vec4 wp=modelMatrix*vec4(p,1.0); vWorld=wp.xyz;
+          gl_Position=projectionMatrix*viewMatrix*wp; }`,
+      fragmentShader: `uniform vec3 uShallow,uDeep,uFoam,uSun; uniform float uTime; varying float vShore; varying vec3 vWorld; varying vec3 vN;
+        void main(){ vec3 V=normalize(cameraPosition-vWorld);
+          float fres=pow(1.0-max(dot(V,vN),0.0),3.0);
+          vec3 col=mix(uDeep,uShallow,clamp(vShore*0.8+fres*0.5,0.0,1.0));
+          vec3 H=normalize(V+normalize(uSun)); col += pow(max(dot(vN,H),0.0),60.0)*0.7;
+          float foam=smoothstep(0.35,0.95,vShore)*(0.55+0.45*sin(vWorld.x*2.2+vWorld.z*2.0+uTime*3.2));
+          col=mix(col,uFoam,clamp(foam,0.0,0.75));
+          gl_FragColor=vec4(col, mix(0.82,0.97,clamp(vShore,0.0,1.0))); }`
+    });
+    const water = new THREE.Mesh(wg, waterMat);
+    water.position.y = 0.12;
     mapGroup.add(water);
     mapGroup.userData.water = water;
-    mapGroup.userData.waterBase = wg.attributes.position.array.slice();
+    mapGroup.userData.waterMat = waterMat;
 
     // Köprü/geçit güvertesi (nehir/kanal böler ama buradan geçilir)
     if (waterLayout.bridge) {
@@ -315,8 +406,9 @@ const Warmap = (() => {
         new THREE.PlaneGeometry(b.half * 2 + 6, 9),
         new THREE.MeshStandardMaterial({ color: terrain.id === 'urban' ? 0x3a3d46 : 0x8a7048, roughness: 0.95 })
       );
+      const deckY = terrainHeightAtSafe(b.x, b.z) + 0.25;
       deck.rotation.x = -Math.PI / 2;
-      deck.position.set(b.x, 0.09, b.z);
+      deck.position.set(b.x, deckY, b.z);
       deck.receiveShadow = true;
       mapGroup.add(deck);
       // Geçit vurgusu (parlak kenarlar)
@@ -325,7 +417,7 @@ const Warmap = (() => {
         new THREE.MeshBasicMaterial({ color: 0xe7d9a8, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false })
       );
       glow.rotation.x = -Math.PI / 2;
-      glow.position.set(b.x, 0.1, b.z);
+      glow.position.set(b.x, deckY + 0.02, b.z);
       mapGroup.add(glow);
     }
 
@@ -366,8 +458,8 @@ const Warmap = (() => {
   function scatterDecor(terrain) {
     // Merkez koridoru (temas hattı) boş kalsın ki ordular buluşabilsin
     const inCorridor = z => Math.abs(z) < 5;
-    // Su üstüne dekor koyma (nehir/kanal düzenlerinde kuru zemine düşür)
-    const put = (mesh, x, z) => { if (waterAt(x, z)) return; mesh.position.set(x, mesh.position.y, z); mesh.castShadow = true; mesh.receiveShadow = true; mapGroup.add(mesh); };
+    // Su üstüne dekor koyma; kuru zemine + arazi yüksekliğine oturt
+    const put = (mesh, x, z) => { if (waterAt(x, z)) return; mesh.position.set(x, mesh.position.y + terrainHeightAtSafe(x, z), z); mesh.castShadow = true; mesh.receiveShadow = true; mapGroup.add(mesh); };
     const spotX = () => MAP.minX + 4 + Math.random() * (MAP.maxX - MAP.minX - 8);
     const spotZ = () => MAP.minZ + 4 + Math.random() * (MAP.maxZ - MAP.minZ - 8);
 
@@ -440,10 +532,11 @@ const Warmap = (() => {
     ring.position.y = 0.32;
     g.add(ring);
 
-    g.position.set(hqx, 0, z);
+    const hy = terrainHeightAtSafe(hqx, z);
+    g.position.set(hqx, hy, z);
     mapGroup.add(g);
     S.hq = S.hq || {};
-    S.hq[side] = { group: g, flag, pole, pos: new THREE.Vector3(hqx, 0, z), capture: 0 };
+    S.hq[side] = { group: g, flag, pole, pos: new THREE.Vector3(hqx, hy, z), capture: 0 };
   }
 
   // ==========================================================================
@@ -452,16 +545,27 @@ const Warmap = (() => {
   function enableShadow(obj) { obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); }
 
   // country: { colors:[primary,secondary], iso } — milli renkler gövde aksanında
+  // Stilize toon gradyan (bantlı diorama gölgeleme)
+  let toonGradient = null;
+  function getToonGradient() {
+    if (toonGradient) return toonGradient;
+    const d = new Uint8Array([96, 96, 96, 255, 150, 150, 150, 255, 205, 205, 205, 255, 255, 255, 255, 255]);
+    const tex = new THREE.DataTexture(d, 4, 1, THREE.RGBAFormat);
+    tex.minFilter = tex.magFilter = THREE.NearestFilter; tex.needsUpdate = true;
+    toonGradient = tex; return tex;
+  }
+  const toonMat = (color) => new THREE.MeshToonMaterial({ color, gradientMap: getToonGradient() });
+
   function buildUnitMesh(type, side, country) {
     const g = new THREE.Group();
     const nat = (country && country.colors) ? country.colors[0] : (side === 'player' ? 0x2a6f97 : 0x8a3b2a);
     const nat2 = (country && country.colors) ? country.colors[1] : 0xdddddd;
 
-    // Nötr askeri gövde (arazi bağımsız koyu zeytin/gri) + milli aksan
-    const hullMat = new THREE.MeshStandardMaterial({ color: 0x3a4033, metalness: 0.25, roughness: 0.7 });
-    const accentMat = new THREE.MeshStandardMaterial({ color: nat, metalness: 0.3, roughness: 0.55 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x22261e, metalness: 0.3, roughness: 0.6 });
-    const trimMat = new THREE.MeshStandardMaterial({ color: nat2, metalness: 0.3, roughness: 0.5 });
+    // Nötr askeri gövde (toon) + milli aksan
+    const hullMat = toonMat(0x3a4033);
+    const accentMat = toonMat(nat);
+    const darkMat = toonMat(0x22261e);
+    const trimMat = toonMat(nat2);
     g.userData.mat = accentMat; // hasar tonlaması aksana uygulanır
 
     const M = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); g.add(m); return m; };
@@ -571,7 +675,7 @@ const Warmap = (() => {
 
     const mesh = buildUnitMesh(type, side, country);
     mesh.scale.setScalar(UNIT_SCALE);
-    const alt = t.domain === 'air' ? t.alt : 0;
+    const alt = t.domain === 'air' ? t.alt : (t.domain === 'sea' ? 0.18 : terrainHeightAtSafe(x, z) + 0.02);
     mesh.position.set(x, alt, z);
     mesh.rotation.y = side === 'player' ? Math.PI : 0;
     rootGroup.add(mesh);
@@ -1063,11 +1167,16 @@ const Warmap = (() => {
       const st = STANCES[stances[u.side].stance];
       const speedMod = st.speed * eventMod('speedMod', 1);
 
-      // Hava birimleri süzülür / rotor döner
+      // Hava birimleri süzülür / rotor döner; kara birimleri araziye oturur, gemi su yüzeyinde
       if (u.domain === 'air') {
         u.bob += dt * 2.4;
         u.mesh.position.y = u.alt + Math.sin(u.bob) * 0.3;
         if (u.mesh.userData.rotor) u.mesh.userData.rotor.rotation.y += dt * 30;
+      } else if (u.domain === 'sea') {
+        u.bob += dt * 1.6;
+        u.mesh.position.y = 0.18 + Math.sin(u.bob) * 0.08;
+      } else {
+        u.mesh.position.y = terrainHeightAtSafe(u.mesh.position.x, u.mesh.position.z) + 0.02;
       }
 
       // Ricat: kendi kenarına kaç
@@ -1242,16 +1351,8 @@ const Warmap = (() => {
       if (sc.life <= 0) { rootGroup.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); S.fx.scorches.splice(i, 1); }
     }
 
-    // Su dalgası
-    const water = mapGroup.userData.water;
-    if (water) {
-      const pos = water.geometry.attributes.position, base = mapGroup.userData.waterBase;
-      const tw = (S && S.elapsed != null ? S.elapsed : performance.now() / 1000) * 1.6;
-      for (let vi = 0; vi < pos.count; vi++) {
-        pos.array[vi * 3 + 1] = Math.sin(tw + base[vi * 3] * 0.35 + base[vi * 3 + 2] * 0.28) * 0.16;
-      }
-      pos.needsUpdate = true;
-    }
+    // Su dalgası (şader uniform'u)
+    if (mapGroup.userData.waterMat) mapGroup.userData.waterMat.uniforms.uTime.value = (S && S.elapsed != null ? S.elapsed : performance.now() / 1000);
 
     // HQ yakalama
     checkHQ(dt);
@@ -1639,12 +1740,7 @@ const Warmap = (() => {
       S.deployTime -= dt;
       if (S.deployTime <= 0 && S.phase === 'deploy') startFight();
       S.cb.onDeployTick(Math.ceil(Math.max(0, S.deployTime)));
-      const water = mapGroup && mapGroup.userData.water;
-      if (water) {
-        const pos = water.geometry.attributes.position, base = mapGroup.userData.waterBase;
-        for (let vi = 0; vi < pos.count; vi++) pos.array[vi * 3 + 2] = Math.sin(performance.now() * 0.0016 + base[vi * 3] * 0.4) * 0.15;
-        pos.needsUpdate = true;
-      }
+      if (mapGroup && mapGroup.userData.waterMat) mapGroup.userData.waterMat.uniforms.uTime.value = performance.now() / 1000;
     } else if (S.phase === 'fight') {
       stepFight(sdt);
     }
@@ -1748,7 +1844,7 @@ const Warmap = (() => {
   return {
     runBattle, getUnitInfo,
     UNIT_TYPES, ROSTER, ABILITIES, STANCES,
-    pickTerrain: () => TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
+    pickTerrain: () => (forcedTerrainId && TERRAINS.find(t => t.id === forcedTerrainId)) || TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
     pickTerrainById: id => TERRAINS.find(t => t.id === id) || TERRAINS[Math.floor(Math.random() * TERRAINS.length)],
     eventById: id => EVENTS.find(e => e.id === id) || null,
     maybeEvent: () => Math.random() < 0.45 ? EVENTS[Math.floor(Math.random() * EVENTS.length)] : null,
@@ -1769,6 +1865,7 @@ const Warmap = (() => {
     get _debugTimeScale() { return timeScale; },
     set _debugWaterStyle(v) { forcedWaterStyle = v; },
     get _debugWaterStyle() { return waterLayout ? waterLayout.style : null; },
+    set _debugTerrain(id) { forcedTerrainId = id; },
     _debugCountries: () => S ? S.countries : null,
     _debugWin: side => { if (S) endBattle(side === 'ai' ? 'ai' : 'player', false); },
     _debugWaterViolations: () => {

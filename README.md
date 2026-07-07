@@ -10,6 +10,28 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.4 "Diorama Görsel Motoru" — Muharebe Sahnesi Baştan (Stilize Diorama)
+
+Kullanıcı görselleri (özellikle haritaları) beğenmedi → muharebe sahnesinin görsel katmanı baştan
+kuruldu. Sanat yönü: **stilize diorama** (Clash Royale / Bad North / Wargroove). Performans: dengeli
+(SSAO yok; instancing + şader su + renk grading).
+
+- **Arazi — gerçek geometri** — düz tek-segment plane yerine 96×72 **yükseklik geometrisi** (değer-
+  gürültü fbm), **painterly vertex renk** (yükseklik+eğim+temaya göre çim/kaya/kum/kar tonları).
+  Oynanışı koru: koridor (z~0) düz kalır, tepeler yerleştirme bölgelerinde yumuşar. `terrainHeightAt`
+  → birim/prop/mermi/HQ araziye oturur. **Diorama kaidesi**: altta koyu toprak bloğu (yüzen ada).
+- **Su — ShaderMaterial** — hücre-mesh yerine derinlik rengi (sığ turkuaz → derin lacivert) + dalga +
+  **kıyı köpüğü** (shore attribute) + fresnel + güneş specular. Nehir/kanal/kıyı düzenleri + köprü korunur.
+- **Işık & atmosfer** — düz ambient → **HemisphereLight** (gök/yer GI) + ılık güneş + serin rim ışık.
+- **Post — renk grading + vignette** — bloom eşiği yükseltildi (yalnız ışık/iz ışısın) + inline ShaderPass
+  (kontrast + doygunluk + split-tone ılık gölge/serin highlight + vignette) → her şeyi "oyun" hissine bağlar.
+- **Birlikler — toon** — `MeshToonMaterial` + kod-üretimi gradientMap (bantlı diorama gölgeleme);
+  geometri korunur, milli aksan + taraf tinti + bayrak. Kara birimi araziye, gemi su yüzeyine oturur.
+- **Teknik** — `warmap.js` (arazi/su/prop/toon/`terrainHeightAt`), `scene3d.js` (ışık + grading post).
+  Kritik düzeltme: diorama kaidesi arazi minimumunun altına indirildi (z-fighting kontur şeritleri giderildi).
+  Doğrulama: 5 arazi (çöl/orman/dağ/kar/şehir) diorama render + su/köprü + PvE/Düello/Online/Kampanya/
+  doktrin regresyonları ERRORS NONE (birimler undulasyonlu zeminde yerleşir/hareket eder/savaşır).
+
 ## v6.3 "Fetih 2.0 + Doktrin Dengesi" — Genişletilmiş Kampanya + Veri Odaklı Denge
 
 Tek-oyunculu derinlik + ölçülü denge.

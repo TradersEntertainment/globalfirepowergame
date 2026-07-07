@@ -33,7 +33,7 @@ const Scene3D = (() => {
   let tableGroup = null;     // masa öğeleri (muharebe sahasında gizlenir)
   let spaceGroup = null;     // uzay fonu (küre + yıldızlar + toz) — muharebede gizlenir
   let cameraOverride = false; // true iken kamerayı dış motor (warmap) sürer
-  let composer = null, bloomPass = null; // post-processing (bloom)
+  let composer = null, bloomPass = null, gradePass = null; // post-processing
   let bloomEnabled = true, shadowsEnabled = true; // ayarlar menüsü
   let keyLightRef = null;
 
@@ -446,9 +446,9 @@ const Scene3D = (() => {
   function buildEnvironment() {
     scene.fog = new THREE.FogExp2(0x04060c, 0.016);
 
-    // Işıklar (yumuşak, kaliteli aydınlatma + gölge)
-    scene.add(new THREE.AmbientLight(0x40506a, 0.72));
-    const keyLight = new THREE.DirectionalLight(0xfff2dc, 1.15);
+    // Işıklar (diorama: ılık güneş + gök/yer hemisphere + serin rim)
+    scene.add(new THREE.HemisphereLight(0x9dc4ee, 0x574a3a, 0.9)); // gök / yer sıçraması (doğal GI)
+    const keyLight = new THREE.DirectionalLight(0xfff0d2, 1.35);
     keyLight.position.set(28, 46, 22);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(2048, 2048);
@@ -459,14 +459,19 @@ const Scene3D = (() => {
     keyLight.shadow.camera.top = 60;
     keyLight.shadow.camera.bottom = -60;
     keyLight.shadow.bias = -0.0004;
-    keyLight.shadow.normalBias = 0.03;
+    keyLight.shadow.normalBias = 0.4; // diorama arazi: geniş alıcıda shadow acne önle
     scene.add(keyLight);
     keyLightRef = keyLight;
 
     // Dolgu ışığı (karşı yön, gölgesiz — kontrastı yumuşatır)
-    const fillLight = new THREE.DirectionalLight(0x8aa0c8, 0.35);
+    const fillLight = new THREE.DirectionalLight(0x8aa0c8, 0.28);
     fillLight.position.set(-20, 18, -14);
     scene.add(fillLight);
+
+    // Serin rim/arka ışık — siluet pop (diorama)
+    const rimLight = new THREE.DirectionalLight(0xbfe0ff, 0.5);
+    rimLight.position.set(-14, 12, -34);
+    scene.add(rimLight);
 
     const playerGlow = new THREE.PointLight(0x00b4d8, 0.9, 45);
     playerGlow.position.set(0, 7, 14);
@@ -1433,26 +1438,49 @@ const Scene3D = (() => {
       if (shakeAmp < 0.001) shakeAmp = 0;
     }
 
-    if (composer && bloomEnabled) composer.render();
+    if (composer) composer.render();
     else renderer.render(scene, camera);
   }
 
-  // ---- Post-processing (Bloom) ------------------------------------------------
+  // ---- Post-processing (Bloom + renk grading + vignette) ----------------------
   function setupComposer() {
     try {
-      if (!THREE.EffectComposer || !THREE.UnrealBloomPass) return;
+      if (!THREE.EffectComposer || !THREE.UnrealBloomPass || !THREE.ShaderPass) return;
       composer = new THREE.EffectComposer(renderer);
       composer.addPass(new THREE.RenderPass(scene, camera));
       bloomPass = new THREE.UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.62,  // güç (strength)
-        0.5,   // yarıçap (radius)
-        0.82   // eşik (threshold) — yalnız parlak yerler ışısın
+        0.5,   // güç (ince — yalnız ışık/iz/pencere ışısın)
+        0.55,  // yarıçap
+        0.86   // eşik (yüksek → sahne genelinde bloom taşmaz)
       );
       composer.addPass(bloomPass);
+
+      // Renk grading + vignette (her şeyi "oyun" hissine bağlar)
+      const GradeShader = {
+        uniforms: {
+          tDiffuse: { value: null },
+          uContrast: { value: 1.08 },
+          uSat: { value: 1.14 },
+          uVig: { value: 1.15 }
+        },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+        fragmentShader: `uniform sampler2D tDiffuse; uniform float uContrast,uSat,uVig; varying vec2 vUv;
+          void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb;
+            c=(c-0.5)*uContrast+0.5;
+            float l=dot(c,vec3(0.299,0.587,0.114));
+            c=mix(vec3(l),c,uSat);
+            c += (0.5-l)*vec3(0.035,0.012,-0.03);   // split-tone: ılık gölge / serin highlight
+            vec2 d=vUv-0.5; float v=smoothstep(0.9,0.35,length(d)*uVig);
+            c*=mix(0.7,1.0,v);
+            gl_FragColor=vec4(clamp(c,0.0,1.0),1.0); }`
+      };
+      gradePass = new THREE.ShaderPass(GradeShader);
+      gradePass.renderToScreen = true;
+      composer.addPass(gradePass);
     } catch (e) {
-      console.warn('Bloom kurulamadı, düz render kullanılacak:', e);
-      composer = null; bloomPass = null;
+      console.warn('Post-processing kurulamadı, düz render kullanılacak:', e);
+      composer = null; bloomPass = null; gradePass = null;
     }
   }
 
@@ -1554,7 +1582,7 @@ const Scene3D = (() => {
       scene.fog = v ? new THREE.FogExp2(0x04060c, 0.016) : null;
     },
     setFog: (color, density) => { scene.fog = density > 0 ? new THREE.FogExp2(color, density) : null; },
-    setBloomEnabled: v => { bloomEnabled = !!v; },
+    setBloomEnabled: v => { bloomEnabled = !!v; if (bloomPass) bloomPass.enabled = !!v; },
     setShadowsEnabled: v => { shadowsEnabled = !!v; if (renderer) renderer.shadowMap.enabled = !!v; },
     getFlagTexture: iso => getFlagTexture(iso),
     overrideCamera: v => { cameraOverride = v; },
