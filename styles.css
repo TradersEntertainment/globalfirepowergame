@@ -1596,7 +1596,53 @@ body.warmap-active .log-panel { top: 60px; }
   margin-bottom: 10px;
 }
 .ph-title { font-size: 0.8rem; color: var(--color-accent); font-weight: 600; }
+.ph-title .ph-sub { color: var(--text-muted); font-weight: 400; }
 .ph-timer { font-family: var(--font-family-mono); font-size: 0.8rem; color: var(--color-warning); }
+
+/* Güç bütçesi panosu — "paramız/sınırımız" net */
+.ph-budget {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.pb-pool {
+  flex: 1 1 140px;
+  min-width: 130px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid hsla(var(--h), 60%, 50%, 0.35);
+  border-radius: 8px;
+  padding: 6px 9px;
+  transition: var(--transition-smooth);
+}
+.pb-pool.pb-active {
+  border-color: hsla(var(--h), 80%, 60%, 0.9);
+  box-shadow: 0 0 10px hsla(var(--h), 80%, 55%, 0.35);
+}
+.pb-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: hsl(var(--h), 65%, 62%);
+}
+.pb-nums { margin-left: auto; font-family: var(--font-family-mono); color: var(--text-primary); font-weight: 400; }
+.pb-nums b { font-size: 0.9rem; color: hsl(var(--h), 75%, 68%); }
+.pb-lbl { color: var(--text-muted); font-size: 0.58rem; }
+.pb-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+.pb-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(var(--h), 70%, 45%), hsl(var(--h), 75%, 60%));
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
 .placement-roster {
   display: flex;
   gap: 10px;
@@ -1619,7 +1665,8 @@ body.warmap-active .log-panel { top: 60px; }
   background: hsla(195,100%,50%,0.14);
   box-shadow: 0 0 14px hsla(195,100%,50%,0.4);
 }
-.unit-card.cant { opacity: 0.4; }
+.unit-card.cant { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.7); }
+.unit-card.cant:hover { border-color: var(--border-light); transform: none; }
 .unit-card .uc-icon { font-size: 1.3rem; color: var(--color-accent); margin-bottom: 4px; }
 .unit-card .uc-name { font-size: 0.66rem; font-weight: 700; line-height: 1.1; }
 .unit-card .uc-cost { font-family: var(--font-family-mono); font-size: 0.62rem; color: var(--color-premium); margin-top: 3px; }

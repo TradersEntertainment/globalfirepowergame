@@ -10,6 +10,17 @@
 - **Savaş Koreografisi** — Kartlar orta hatta tokuşur; patlama partikülleri, şok dalgası halkaları, nokta ışık flaşları, balistik **füze saldırıları** (bezier yörünge + iz partikülleri), nükleer vuruş efekti ve kamera sarsıntısı.
 - **Sinematik Kamera** — Menüde yörünge turu, planlamada nefes alan komuta açısı, her cephe çatışmasında yakınlaşan odak kamerası.
 
+## v6.4.1 "Bütçe Netliği" — Yerleştirme Güç Panosu + Birlik Sınırı
+
+Test oyuncusu geri bildirimi: yerleştirme fazında "paramız nerede, sınırımız ne belli değil".
+
+- **Güç bütçesi panosu** — kriptik `⛰24 ✈12 ⚓45` başlığı yerine 3 kuvvet için net **etiketli pano**:
+  `KARA 36 / 51 güç kaldı` + renkli **dolum çubuğu** (harcadıkça dolar); seçili birimin kuvveti parlar.
+  Her birlik kartı maliyeti + kuvveti gösterir (`3 KARA`, `6 HAVA`, `7 DENİZ`, kuvvet renginde);
+  bütçesi yetmeyen kart grileşir (not-allowed). Tek net kural: her kuvvetin ayrı güç bütçesi var.
+- **Birlik sınırı 14 → 30** — 14'lük keyfi tavan "param var ama ordu dolu" karışıklığı yaratıyordu;
+  artık **asıl sınır güç bütçesi** (30 sadece güvenlik tavanı, nadiren bağlar). `warmap.js`.
+
 ## v6.4 "Diorama Görsel Motoru" — Muharebe Sahnesi Baştan (Stilize Diorama)
 
 Kullanıcı görselleri (özellikle haritaları) beğenmedi → muharebe sahnesinin görsel katmanı baştan

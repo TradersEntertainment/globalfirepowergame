@@ -226,7 +226,7 @@ const Warmap = (() => {
   const cam = { cx: 0, cz: 4, dist: 30, height: 25, targetDist: 30, targetHeight: 25 };
 
   const UNIT_SCALE = 1.75;       // birlikler ekranda büyük görünsün
-  const MAX_UNITS_PER_SIDE = 14; // az sayıda "kahraman" birlik
+  const MAX_UNITS_PER_SIDE = 30; // güvenlik tavanı — asıl sınır güç bütçesi (nadiren bağlar)
   const overheadList = [];       // billboard'lanacak baş-üstü (bayrak+can barı) grupları
   const pan = { up: false, down: false, left: false, right: false };
 
@@ -771,7 +771,7 @@ const Warmap = (() => {
     const cost = effCost('player', t.force, t.cost);
     const budget = S.budget.player[t.force];
     if (budget < cost) return false;
-    if (sideCount('player') >= MAX_UNITS_PER_SIDE) { S.cb.onLog('Ordu kapasitesi dolu (maks 14 birlik).', 'system'); return false; }
+    if (sideCount('player') >= MAX_UNITS_PER_SIDE) { S.cb.onLog(`Ordu kapasitesi dolu (maks ${MAX_UNITS_PER_SIDE} birlik).`, 'system'); return false; }
     if (!validPlacement('player', x, z, t.domain)) return false;
     S.budget.player[t.force] -= cost;
     const u = makeUnit(type, 'player', x, z);

@@ -2337,20 +2337,29 @@ function updateBattleHUD() {
 }
 
 // Yerleştirme rosteri (mevcut kuvvetlere göre birlik kartları)
+let placementBudgetTotals = { land: 0, air: 0, sea: 0 };
+const FORCE_META = {
+  land: { label: 'KARA', icon: 'fa-shield-halved', hue: 90 },
+  air: { label: 'HAVA', icon: 'fa-jet-fighter-up', hue: 195 },
+  sea: { label: 'DENİZ', icon: 'fa-anchor', hue: 225 }
+};
+
 function buildPlacementRoster(budgets) {
+  placementBudgetTotals = { land: budgets.land || 0, air: budgets.air || 0, sea: budgets.sea || 0 };
   const el = document.getElementById('placement-roster');
   el.innerHTML = '';
   ['land', 'air', 'sea'].forEach(force => {
     if (budgets[force] <= 0) return;
     Warmap.ROSTER[force].forEach(type => {
       const t = Warmap.UNIT_TYPES[type];
+      const fm = FORCE_META[force];
       const card = document.createElement('div');
       card.className = `unit-card uc-force-${force}`;
       card.dataset.type = type;
       card.innerHTML = `
         <div class="uc-icon"><i class="fa-solid ${t.icon}"></i></div>
         <div class="uc-name">${t.name}</div>
-        <div class="uc-cost"><i class="fa-solid fa-coins"></i> ${t.cost}</div>
+        <div class="uc-cost" style="color:hsl(${fm.hue},70%,62%)"><i class="fa-solid fa-bolt"></i> ${t.cost} ${fm.label}</div>
       `;
       card.addEventListener('click', () => {
         sfx('click');
@@ -2375,13 +2384,24 @@ function refreshPlacementRoster() {
     card.classList.toggle('armed', sel === card.dataset.type);
     card.classList.toggle('cant', budget[t.force] < t.cost);
   });
-  // Bütçe göstergesi başlıkta
-  const title = document.querySelector('.ph-title');
-  if (title) {
-    title.innerHTML = `<i class="fa-solid fa-chess-board"></i> ORDUNU KUR — Kalan bütçe: ` +
-      `<span style="color:hsl(90,55%,55%)">⛰${budget.land}</span> ` +
-      `<span style="color:hsl(195,100%,55%)">✈${budget.air}</span> ` +
-      `<span style="color:hsl(225,70%,65%)">⚓${budget.sea}</span>`;
+  // Güç bütçesi paneli — her kuvvet için harcanan/toplam + dolum çubuğu (net "para/sınır")
+  const bEl = document.getElementById('ph-budget');
+  if (bEl) {
+    const selType = sel ? Warmap.UNIT_TYPES[sel] : null;
+    bEl.innerHTML = ['land', 'air', 'sea'].map(force => {
+      const total = placementBudgetTotals[force];
+      if (total <= 0) return '';
+      const left = Math.max(0, budget[force]);
+      const spent = total - left;
+      const fm = FORCE_META[force];
+      const pct = Math.round((spent / total) * 100);
+      const active = selType && selType.force === force ? ' pb-active' : '';
+      return `<div class="pb-pool${active}" style="--h:${fm.hue}">
+        <div class="pb-top"><i class="fa-solid ${fm.icon}"></i> ${fm.label}
+          <span class="pb-nums"><b>${left}</b> / ${total} <span class="pb-lbl">güç kaldı</span></span></div>
+        <div class="pb-bar"><div class="pb-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
   }
 }
 
